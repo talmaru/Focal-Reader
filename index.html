@@ -8,51 +8,41 @@
   @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Oswald:wght@200;300;400&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #0e0e0e; --surface: #161616; --border: #2a2a2a;
-    --text: #d4cfc9; --muted: #5a5650; --accent: #c8402a;
-    --accent2: #e8956a; --focus: #f0e6d3;
+    --bg: #0e0e0e; --surface: #1a1a1a; --border: #333;
+    --text: #e8e3dc; --muted: #7a7570; --accent: #c8402a;
+    --accent2: #f0a870; --focus: #f5f0e8;
     --highlight-bg: rgba(200,64,42,0.22); --highlight-border: rgba(200,64,42,0.6);
   }
   body { background:var(--bg); color:var(--text); font-family:'Courier Prime',monospace; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:2rem 1rem; }
-  .app { width:100%; max-width:680px; display:flex; flex-direction:column; gap:1.5rem; }
-  .header { text-align:center; padding-bottom:0.5rem; border-bottom:1px solid var(--border); }
-  .header h1 { font-family:'Oswald',sans-serif; font-weight:200; font-size:1.1rem; letter-spacing:0.4em; text-transform:uppercase; color:var(--muted); }
-  .header span { color:var(--accent); }
+  .app { width:100%; max-width:760px; display:flex; flex-direction:column; gap:1.5rem; }
 
-  .display-area { background:var(--surface); border:1px solid var(--border); border-radius:2px; height:160px; position:relative; overflow:hidden; }
-  .display-area::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:0.4; }
-  .pivot-guide { position:absolute; top:0; bottom:0; left:50%; width:1px; background:var(--accent); opacity:0.15; }
+  .header { text-align:center; padding-bottom:0.75rem; border-bottom:1px solid var(--border); }
+  .header h1 { font-family:'Oswald',sans-serif; font-weight:200; font-size:1.1rem; letter-spacing:0.4em; text-transform:uppercase; color:#9a9590; }
+  .header h1 span { color:var(--accent); }
+  .header p { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.2em; color:var(--muted); text-transform:uppercase; margin-top:0.3rem; }
+
+  /* DISPLAY — 25% wider via max-width increase, and we stretch the inner box */
+  .display-area {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:2px; height:180px; position:relative; overflow:hidden;
+  }
+  .display-area::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:0.5; }
+  .pivot-guide { position:absolute; top:0; bottom:0; left:50%; width:1px; background:var(--accent); opacity:0.12; }
+
   .word-stage { position:absolute; top:50%; left:0; right:0; transform:translateY(-50%); display:flex; align-items:baseline; justify-content:center; }
-  .word-before { display:block; text-align:right; width:50%; padding-right:2px; color:var(--text); white-space:nowrap; overflow:hidden; }
+  .word-before { display:block; text-align:right; width:50%; padding-right:2px; color:var(--text); white-space:nowrap; overflow:visible; }
   .word-pivot { display:block; color:var(--accent); font-weight:700; flex-shrink:0; }
-  .word-after { display:block; text-align:left; width:50%; padding-left:2px; color:var(--text); white-space:nowrap; overflow:hidden; }
+  .word-after { display:block; text-align:left; width:50%; padding-left:2px; color:var(--text); white-space:nowrap; overflow:visible; }
   .word-stage.flash { animation:flashIn 0.07s ease-out; }
   @keyframes flashIn { 0%{opacity:0.15;transform:translateY(-50%) scale(0.94)} 100%{opacity:1;transform:translateY(-50%) scale(1)} }
+
   .idle-text { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-family:'Oswald',sans-serif; font-weight:200; font-size:0.85rem; letter-spacing:0.2em; color:var(--muted); text-transform:uppercase; white-space:nowrap; }
   .progress-bar-wrap { height:2px; background:var(--border); width:100%; position:absolute; bottom:0; }
   .progress-bar-fill { height:100%; background:var(--accent); transition:width 0.1s linear; }
   .word-counter { position:absolute; bottom:8px; right:12px; font-size:0.65rem; color:var(--muted); letter-spacing:0.1em; font-family:'Oswald',sans-serif; font-weight:300; }
   .live-wpm { position:absolute; bottom:8px; left:12px; font-size:0.65rem; color:var(--accent2); letter-spacing:0.1em; font-family:'Oswald',sans-serif; font-weight:300; }
 
-  .controls-row { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; }
-  .control-group { display:flex; align-items:center; gap:0.6rem; background:var(--surface); border:1px solid var(--border); padding:0.6rem 1rem; border-radius:2px; flex:1; min-width:180px; }
-  .control-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
-  .control-value { font-family:'Oswald',sans-serif; font-weight:400; font-size:1rem; color:var(--accent2); min-width:44px; text-align:right; white-space:nowrap; }
-  input[type=range] { flex:1; -webkit-appearance:none; height:2px; background:var(--border); outline:none; min-width:60px; }
-  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:13px; height:13px; background:var(--accent); border-radius:0; cursor:pointer; }
-
-  .ramp-section { background:var(--surface); border:1px solid var(--border); border-radius:2px; overflow:hidden; }
-  .ramp-header { display:flex; align-items:center; justify-content:space-between; padding:0.6rem 1rem; cursor:pointer; user-select:none; }
-  .ramp-title { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--muted); }
-  .ramp-toggle { font-size:0.7rem; color:var(--muted); letter-spacing:0.1em; font-family:'Oswald',sans-serif; }
-  .ramp-toggle.on { color:var(--accent2); }
-  .ramp-body { padding:0.75rem 1rem 1rem; display:flex; flex-direction:column; gap:0.75rem; border-top:1px solid var(--border); }
-  .ramp-body.hidden { display:none; }
-  .ramp-row { display:flex; align-items:center; gap:0.6rem; }
-  .ramp-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted); min-width:80px; }
-  .ramp-val { font-family:'Oswald',sans-serif; font-weight:400; font-size:0.95rem; color:var(--accent2); min-width:60px; text-align:right; white-space:nowrap; }
-  .ramp-note { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.15em; color:var(--muted); text-transform:uppercase; }
-
+  /* BUTTONS */
   .buttons { display:flex; align-items:center; justify-content:center; gap:0.75rem; }
   .btn { background:none; border:1px solid var(--border); color:var(--text); font-family:'Courier Prime',monospace; font-size:0.8rem; padding:0.5rem 1.1rem; cursor:pointer; letter-spacing:0.08em; transition:all 0.15s; border-radius:1px; }
   .btn:hover { border-color:var(--muted); color:var(--focus); }
@@ -60,10 +50,12 @@
   .btn.primary:hover { background:var(--accent); color:var(--bg); }
   .btn:disabled { opacity:0.3; cursor:not-allowed; }
 
-  .sentence-info { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.7rem; letter-spacing:0.2em; color:var(--muted); text-align:center; text-transform:uppercase; }
+  .sentence-info { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.7rem; letter-spacing:0.2em; color:var(--muted); text-align:center; text-transform:uppercase; min-height:1em; }
+
+  /* FULL TEXT */
   .fulltext-section { display:flex; flex-direction:column; gap:0.5rem; }
   .section-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.3em; text-transform:uppercase; color:var(--muted); }
-  .fulltext-view { background:var(--surface); border:1px solid var(--border); padding:1.2rem; border-radius:2px; max-height:220px; overflow-y:auto; line-height:1.9; font-size:0.88rem; scroll-behavior:smooth; }
+  .fulltext-view { background:var(--surface); border:1px solid var(--border); padding:1.2rem; border-radius:2px; max-height:200px; overflow-y:auto; line-height:1.9; font-size:0.9rem; color:var(--text); scroll-behavior:smooth; }
   .fulltext-view::-webkit-scrollbar { width:4px; }
   .fulltext-view::-webkit-scrollbar-track { background:var(--surface); }
   .fulltext-view::-webkit-scrollbar-thumb { background:var(--border); }
@@ -71,11 +63,33 @@
   .ft-word:hover { color:var(--focus); }
   .ft-word.active { background:var(--highlight-bg); color:var(--focus); outline:1px solid var(--highlight-border); }
 
+  /* TEXT INPUT */
   .text-section { display:flex; flex-direction:column; gap:0.5rem; }
-  textarea { background:var(--surface); border:1px solid var(--border); color:var(--text); font-family:'Courier Prime',monospace; font-size:0.85rem; line-height:1.6; padding:1rem; resize:vertical; min-height:110px; outline:none; border-radius:1px; transition:border-color 0.15s; }
+  textarea { background:var(--surface); border:1px solid var(--border); color:var(--text); font-family:'Courier Prime',monospace; font-size:0.88rem; line-height:1.6; padding:1rem; resize:vertical; min-height:110px; outline:none; border-radius:1px; transition:border-color 0.15s; }
   textarea:focus { border-color:var(--muted); }
   textarea::placeholder { color:var(--muted); }
-  .load-btn { align-self:flex-end; }
+  .text-actions { display:flex; gap:0.75rem; justify-content:flex-end; }
+
+  /* CONSOLIDATED OPTIONS BOX */
+  .options-box { background:var(--surface); border:1px solid var(--border); border-radius:2px; overflow:hidden; }
+  .options-header { display:flex; align-items:center; justify-content:space-between; padding:0.65rem 1rem; cursor:pointer; user-select:none; border-bottom:1px solid var(--border); }
+  .options-title { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.3em; text-transform:uppercase; color:var(--muted); }
+  .options-chevron { font-size:0.65rem; color:var(--muted); transition:transform 0.2s; }
+  .options-chevron.open { transform:rotate(180deg); }
+  .options-body { display:flex; flex-direction:column; gap:0; }
+  .options-body.hidden { display:none; }
+
+  .opt-row { display:flex; align-items:center; gap:0.75rem; padding:0.65rem 1rem; border-bottom:1px solid var(--border); }
+  .opt-row:last-child { border-bottom:none; }
+  .opt-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted); min-width:90px; }
+  .opt-val { font-family:'Oswald',sans-serif; font-weight:400; font-size:0.95rem; color:var(--accent2); min-width:70px; text-align:right; white-space:nowrap; }
+
+  input[type=range] { flex:1; -webkit-appearance:none; height:2px; background:var(--border); outline:none; min-width:80px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:13px; height:13px; background:var(--accent); border-radius:0; cursor:pointer; }
+
+  .ramp-divider { padding:0.5rem 1rem 0; }
+  .ramp-divider-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.65rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--accent); border-top:1px solid var(--border); padding-top:0.5rem; display:block; }
+  .ramp-note { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.12em; color:var(--muted); text-transform:uppercase; padding:0 1rem 0.65rem; }
 
   .keyboard-hints { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.15em; color:var(--muted); text-align:center; text-transform:uppercase; border-top:1px solid var(--border); padding-top:0.75rem; }
   .keyboard-hints span { color:var(--text); }
@@ -83,11 +97,14 @@
 </head>
 <body>
 <div class="app">
-  <div class="header"><h1>FOCAL<span>—</span>READER</h1></div>
+  <div class="header">
+    <h1>FOCAL<span>—</span>READER</h1>
+    <p>Fixed Visual Focus Reading — RSVP Method</p>
+  </div>
 
   <div class="display-area">
     <div class="pivot-guide"></div>
-    <div class="idle-text" id="idleText">paste text below to begin</div>
+    <div class="idle-text" id="idleText">loading seed text…</div>
     <div class="word-stage" id="wordStage" style="display:none; font-size:45px;">
       <span class="word-before" id="wBefore"></span>
       <span class="word-pivot" id="wPivot"></span>
@@ -96,39 +113,6 @@
     <div class="live-wpm" id="liveWpm"></div>
     <div class="word-counter" id="wordCounter"></div>
     <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar" style="width:0%"></div></div>
-  </div>
-
-  <div class="controls-row">
-    <div class="control-group">
-      <span class="control-label">Target</span>
-      <input type="range" id="wpmSlider" min="100" max="1200" step="25" value="500">
-      <span class="control-value"><span id="wpmDisplay">500</span> wpm</span>
-    </div>
-    <div class="control-group">
-      <span class="control-label">Size</span>
-      <input type="range" id="fontSlider" min="16" max="72" step="2" value="45">
-      <span class="control-value"><span id="fontDisplay">45</span>px</span>
-    </div>
-  </div>
-
-  <div class="ramp-section">
-    <div class="ramp-header" id="rampHeader">
-      <span class="ramp-title">Ramp / Acceleration</span>
-      <span class="ramp-toggle" id="rampToggleLabel">off — click to enable</span>
-    </div>
-    <div class="ramp-body hidden" id="rampBody">
-      <div class="ramp-row">
-        <span class="ramp-label">Start at</span>
-        <input type="range" id="rampStartSlider" min="50" max="600" step="25" value="150">
-        <span class="ramp-val"><span id="rampStartDisplay">150</span> wpm</span>
-      </div>
-      <div class="ramp-row">
-        <span class="ramp-label">Ramp over</span>
-        <input type="range" id="rampDurSlider" min="2" max="60" step="1" value="10">
-        <span class="ramp-val"><span id="rampDurDisplay">10</span> sec</span>
-      </div>
-      <div class="ramp-note" id="rampNote">starts at 150 wpm → ramps to 500 wpm over 10 seconds</div>
-    </div>
   </div>
 
   <div class="buttons">
@@ -147,7 +131,44 @@
   <div class="text-section">
     <span class="section-label">Text Input</span>
     <textarea id="textInput" placeholder="Paste any text here — article, chapter, anything you want to read..."></textarea>
-    <button class="btn primary load-btn" id="loadBtn">load text</button>
+    <div class="text-actions">
+      <button class="btn" id="clearBtn">clear</button>
+      <button class="btn primary" id="loadBtn">load text</button>
+    </div>
+  </div>
+
+  <!-- CONSOLIDATED OPTIONS -->
+  <div class="options-box">
+    <div class="options-header" id="optionsHeader">
+      <span class="options-title">Settings</span>
+      <span class="options-chevron open" id="optionsChevron">▲</span>
+    </div>
+    <div class="options-body" id="optionsBody">
+      <div class="opt-row">
+        <span class="opt-label">Target Speed</span>
+        <input type="range" id="wpmSlider" min="100" max="1200" step="25" value="500">
+        <span class="opt-val"><span id="wpmDisplay">500</span> wpm</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">Font Size</span>
+        <input type="range" id="fontSlider" min="16" max="72" step="2" value="45">
+        <span class="opt-val"><span id="fontDisplay">45</span> px</span>
+      </div>
+
+      <div class="ramp-divider"><span class="ramp-divider-label">Ramp / Acceleration</span></div>
+
+      <div class="opt-row">
+        <span class="opt-label">Start At</span>
+        <input type="range" id="rampStartSlider" min="50" max="600" step="25" value="150">
+        <span class="opt-val"><span id="rampStartDisplay">150</span> wpm</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">Ramp Over</span>
+        <input type="range" id="rampDurSlider" min="2" max="60" step="1" value="10">
+        <span class="opt-val"><span id="rampDurDisplay">10</span> sec</span>
+      </div>
+      <div class="ramp-note" id="rampNote">starts at 150 wpm → ramps to 500 wpm over 10 seconds</div>
+    </div>
   </div>
 
   <div class="keyboard-hints">
@@ -158,17 +179,25 @@
 </div>
 
 <script>
+  const SEED_TEXT = `Focal Reader is a speed reading tool based on a technique called Rapid Serial Visual Presentation, or RSVP. The concept was first explored during World War II for aircraft recognition training. Instead of moving your eyes across a line of text, Focal Reader displays one word at a time in a fixed position. A single letter in each word is highlighted in red. This is the Optimal Recognition Point, the position where the eye most efficiently processes the whole word without needing to scan it. Your eye parks at that fixed position, and the words flow through it. The result is that the mechanical work of reading, moving your eyes across a line, is eliminated entirely. What remains is pure comprehension. You can configure your target reading speed in words per minute using the settings below. The ramp function lets you start at a comfortable speed and accelerate smoothly to your target, so your brain has time to shift gears rather than being thrown into full speed from a standing start. The full text panel below the display shows your position in the text as you read. You can click any word to jump directly to that point. To get started, paste any text into the input box and hit load. Then press play, or tap the spacebar.`;
+
   const state = {
     words:[], sentences:[],
     currentWord:0, isPlaying:false,
     targetWpm:500, fontSize:45,
-    rampEnabled:false, rampStart:150, rampDuration:10,
+    rampEnabled:true, rampStart:150, rampDuration:10,
     playStartTime:null, pausedElapsed:0,
-    timer:null, loaded:false
+    timer:null, loaded:false,
+    optionsOpen:true
   };
 
   function getORP(word) {
     if (!word) return {before:'',pivot:' ',after:''};
+    // hyphen handling — pivot on the hyphen character
+    const hyphenIdx = word.indexOf('-');
+    if (hyphenIdx > 0 && hyphenIdx < word.length - 1) {
+      return {before:word.slice(0,hyphenIdx),pivot:'-',after:word.slice(hyphenIdx+1)};
+    }
     const clean=word.replace(/[^a-zA-Z0-9]/g,'');
     if (!clean.length) return {before:'',pivot:word[0],after:word.slice(1)};
     const idx=clean.length===1?0:Math.max(0,Math.floor(clean.length*0.28));
@@ -248,7 +277,7 @@
 
   function updateLiveWpm(wpm) {
     document.getElementById('liveWpm').textContent=
-      (state.isPlaying&&state.rampEnabled)?wpm+' wpm':'';
+      (state.isPlaying&&state.rampEnabled&&wpm<state.targetWpm)?wpm+' wpm':'';
   }
 
   function play() {
@@ -291,8 +320,7 @@
     pause();
     const si=getCurrentSentenceIndex();
     state.currentWord=state.sentences[Math.max(0,si-1)].start;
-    state.pausedElapsed=0;
-    displayWord(state.currentWord);
+    state.pausedElapsed=0; displayWord(state.currentWord);
   }
 
   function restart() {
@@ -300,10 +328,8 @@
     displayWord(0); document.getElementById('playBtn').textContent='play';
   }
 
-  function loadText() {
-    const raw=document.getElementById('textInput').value.trim();
-    if (!raw) return;
-    const words=raw.split(/\s+/).filter(w=>w.length>0);
+  function initText(text) {
+    const words=text.split(/\s+/).filter(w=>w.length>0);
     if (!words.length) return;
     state.words=words; state.sentences=splitIntoSentences(words);
     state.currentWord=0; state.pausedElapsed=0;
@@ -318,19 +344,26 @@
     buildFullText(); displayWord(0);
   }
 
+  function loadText() {
+    const raw=document.getElementById('textInput').value.trim();
+    if (!raw) return;
+    initText(raw);
+  }
+
   function updateRampNote() {
     document.getElementById('rampNote').textContent=
       'starts at '+state.rampStart+' wpm → ramps to '+state.targetWpm+' wpm over '+state.rampDuration+' seconds';
   }
 
-  document.getElementById('rampHeader').addEventListener('click',()=>{
-    state.rampEnabled=!state.rampEnabled;
-    const label=document.getElementById('rampToggleLabel');
-    const body=document.getElementById('rampBody');
-    if (state.rampEnabled) { label.textContent='on'; label.classList.add('on'); body.classList.remove('hidden'); }
-    else { label.textContent='off — click to enable'; label.classList.remove('on'); body.classList.add('hidden'); }
+  // Options toggle
+  document.getElementById('optionsHeader').addEventListener('click',()=>{
+    state.optionsOpen=!state.optionsOpen;
+    document.getElementById('optionsBody').classList.toggle('hidden',!state.optionsOpen);
+    document.getElementById('optionsChevron').classList.toggle('open',state.optionsOpen);
+    document.getElementById('optionsChevron').textContent=state.optionsOpen?'▲':'▼';
   });
 
+  // Sliders
   document.getElementById('wpmSlider').addEventListener('input',function(){ state.targetWpm=parseInt(this.value); document.getElementById('wpmDisplay').textContent=state.targetWpm; updateRampNote(); });
   document.getElementById('fontSlider').addEventListener('input',function(){ state.fontSize=parseInt(this.value); document.getElementById('fontDisplay').textContent=state.fontSize; document.getElementById('wordStage').style.fontSize=state.fontSize+'px'; });
   document.getElementById('rampStartSlider').addEventListener('input',function(){ state.rampStart=parseInt(this.value); document.getElementById('rampStartDisplay').textContent=state.rampStart; updateRampNote(); });
@@ -340,6 +373,7 @@
   document.getElementById('prevBtn').addEventListener('click',prevSentence);
   document.getElementById('restartBtn').addEventListener('click',restart);
   document.getElementById('loadBtn').addEventListener('click',loadText);
+  document.getElementById('clearBtn').addEventListener('click',()=>{ document.getElementById('textInput').value=''; });
 
   document.addEventListener('keydown',function(e){
     if (e.target===document.getElementById('textInput')) return;
@@ -347,6 +381,12 @@
     if (e.code==='ArrowLeft') prevSentence();
     if (e.code==='ArrowUp'){ const s=document.getElementById('wpmSlider'); s.value=Math.min(1200,parseInt(s.value)+25); s.dispatchEvent(new Event('input')); }
     if (e.code==='ArrowDown'){ const s=document.getElementById('wpmSlider'); s.value=Math.max(100,parseInt(s.value)-25); s.dispatchEvent(new Event('input')); }
+  });
+
+  // Load seed text on start
+  window.addEventListener('load',()=>{
+    document.getElementById('textInput').value=SEED_TEXT;
+    initText(SEED_TEXT);
   });
 </script>
 </body>
