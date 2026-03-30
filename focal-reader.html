@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Focal Reader</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Oswald:wght@200;300;400&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e0e0e; --surface: #161616; --border: #2a2a2a;
+    --text: #d4cfc9; --muted: #5a5650; --accent: #c8402a;
+    --accent2: #e8956a; --focus: #f0e6d3;
+    --highlight-bg: rgba(200,64,42,0.22); --highlight-border: rgba(200,64,42,0.6);
+  }
+  body { background:var(--bg); color:var(--text); font-family:'Courier Prime',monospace; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:2rem 1rem; }
+  .app { width:100%; max-width:680px; display:flex; flex-direction:column; gap:1.5rem; }
+  .header { text-align:center; padding-bottom:0.5rem; border-bottom:1px solid var(--border); }
+  .header h1 { font-family:'Oswald',sans-serif; font-weight:200; font-size:1.1rem; letter-spacing:0.4em; text-transform:uppercase; color:var(--muted); }
+  .header span { color:var(--accent); }
+
+  .display-area { background:var(--surface); border:1px solid var(--border); border-radius:2px; height:160px; position:relative; overflow:hidden; }
+  .display-area::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:0.4; }
+  .pivot-guide { position:absolute; top:0; bottom:0; left:50%; width:1px; background:var(--accent); opacity:0.15; }
+  .word-stage { position:absolute; top:50%; left:0; right:0; transform:translateY(-50%); display:flex; align-items:baseline; justify-content:center; }
+  .word-before { display:block; text-align:right; width:50%; padding-right:2px; color:var(--text); white-space:nowrap; overflow:hidden; }
+  .word-pivot { display:block; color:var(--accent); font-weight:700; flex-shrink:0; }
+  .word-after { display:block; text-align:left; width:50%; padding-left:2px; color:var(--text); white-space:nowrap; overflow:hidden; }
+  .word-stage.flash { animation:flashIn 0.07s ease-out; }
+  @keyframes flashIn { 0%{opacity:0.15;transform:translateY(-50%) scale(0.94)} 100%{opacity:1;transform:translateY(-50%) scale(1)} }
+  .idle-text { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-family:'Oswald',sans-serif; font-weight:200; font-size:0.85rem; letter-spacing:0.2em; color:var(--muted); text-transform:uppercase; white-space:nowrap; }
+  .progress-bar-wrap { height:2px; background:var(--border); width:100%; position:absolute; bottom:0; }
+  .progress-bar-fill { height:100%; background:var(--accent); transition:width 0.1s linear; }
+  .word-counter { position:absolute; bottom:8px; right:12px; font-size:0.65rem; color:var(--muted); letter-spacing:0.1em; font-family:'Oswald',sans-serif; font-weight:300; }
+  .live-wpm { position:absolute; bottom:8px; left:12px; font-size:0.65rem; color:var(--accent2); letter-spacing:0.1em; font-family:'Oswald',sans-serif; font-weight:300; }
+
+  .controls-row { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; }
+  .control-group { display:flex; align-items:center; gap:0.6rem; background:var(--surface); border:1px solid var(--border); padding:0.6rem 1rem; border-radius:2px; flex:1; min-width:180px; }
+  .control-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+  .control-value { font-family:'Oswald',sans-serif; font-weight:400; font-size:1rem; color:var(--accent2); min-width:44px; text-align:right; white-space:nowrap; }
+  input[type=range] { flex:1; -webkit-appearance:none; height:2px; background:var(--border); outline:none; min-width:60px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:13px; height:13px; background:var(--accent); border-radius:0; cursor:pointer; }
+
+  .ramp-section { background:var(--surface); border:1px solid var(--border); border-radius:2px; overflow:hidden; }
+  .ramp-header { display:flex; align-items:center; justify-content:space-between; padding:0.6rem 1rem; cursor:pointer; user-select:none; }
+  .ramp-title { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--muted); }
+  .ramp-toggle { font-size:0.7rem; color:var(--muted); letter-spacing:0.1em; font-family:'Oswald',sans-serif; }
+  .ramp-toggle.on { color:var(--accent2); }
+  .ramp-body { padding:0.75rem 1rem 1rem; display:flex; flex-direction:column; gap:0.75rem; border-top:1px solid var(--border); }
+  .ramp-body.hidden { display:none; }
+  .ramp-row { display:flex; align-items:center; gap:0.6rem; }
+  .ramp-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted); min-width:80px; }
+  .ramp-val { font-family:'Oswald',sans-serif; font-weight:400; font-size:0.95rem; color:var(--accent2); min-width:60px; text-align:right; white-space:nowrap; }
+  .ramp-note { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.15em; color:var(--muted); text-transform:uppercase; }
+
+  .buttons { display:flex; align-items:center; justify-content:center; gap:0.75rem; }
+  .btn { background:none; border:1px solid var(--border); color:var(--text); font-family:'Courier Prime',monospace; font-size:0.8rem; padding:0.5rem 1.1rem; cursor:pointer; letter-spacing:0.08em; transition:all 0.15s; border-radius:1px; }
+  .btn:hover { border-color:var(--muted); color:var(--focus); }
+  .btn.primary { border-color:var(--accent); color:var(--accent); min-width:90px; }
+  .btn.primary:hover { background:var(--accent); color:var(--bg); }
+  .btn:disabled { opacity:0.3; cursor:not-allowed; }
+
+  .sentence-info { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.7rem; letter-spacing:0.2em; color:var(--muted); text-align:center; text-transform:uppercase; }
+  .fulltext-section { display:flex; flex-direction:column; gap:0.5rem; }
+  .section-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.3em; text-transform:uppercase; color:var(--muted); }
+  .fulltext-view { background:var(--surface); border:1px solid var(--border); padding:1.2rem; border-radius:2px; max-height:220px; overflow-y:auto; line-height:1.9; font-size:0.88rem; scroll-behavior:smooth; }
+  .fulltext-view::-webkit-scrollbar { width:4px; }
+  .fulltext-view::-webkit-scrollbar-track { background:var(--surface); }
+  .fulltext-view::-webkit-scrollbar-thumb { background:var(--border); }
+  .ft-word { display:inline; border-radius:1px; transition:background 0.05s,color 0.05s; cursor:pointer; padding:0 1px; }
+  .ft-word:hover { color:var(--focus); }
+  .ft-word.active { background:var(--highlight-bg); color:var(--focus); outline:1px solid var(--highlight-border); }
+
+  .text-section { display:flex; flex-direction:column; gap:0.5rem; }
+  textarea { background:var(--surface); border:1px solid var(--border); color:var(--text); font-family:'Courier Prime',monospace; font-size:0.85rem; line-height:1.6; padding:1rem; resize:vertical; min-height:110px; outline:none; border-radius:1px; transition:border-color 0.15s; }
+  textarea:focus { border-color:var(--muted); }
+  textarea::placeholder { color:var(--muted); }
+  .load-btn { align-self:flex-end; }
+
+  .keyboard-hints { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.15em; color:var(--muted); text-align:center; text-transform:uppercase; border-top:1px solid var(--border); padding-top:0.75rem; }
+  .keyboard-hints span { color:var(--text); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header"><h1>FOCAL<span>—</span>READER</h1></div>
+
+  <div class="display-area">
+    <div class="pivot-guide"></div>
+    <div class="idle-text" id="idleText">paste text below to begin</div>
+    <div class="word-stage" id="wordStage" style="display:none; font-size:45px;">
+      <span class="word-before" id="wBefore"></span>
+      <span class="word-pivot" id="wPivot"></span>
+      <span class="word-after" id="wAfter"></span>
+    </div>
+    <div class="live-wpm" id="liveWpm"></div>
+    <div class="word-counter" id="wordCounter"></div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar" style="width:0%"></div></div>
+  </div>
+
+  <div class="controls-row">
+    <div class="control-group">
+      <span class="control-label">Target</span>
+      <input type="range" id="wpmSlider" min="100" max="1200" step="25" value="500">
+      <span class="control-value"><span id="wpmDisplay">500</span> wpm</span>
+    </div>
+    <div class="control-group">
+      <span class="control-label">Size</span>
+      <input type="range" id="fontSlider" min="16" max="72" step="2" value="45">
+      <span class="control-value"><span id="fontDisplay">45</span>px</span>
+    </div>
+  </div>
+
+  <div class="ramp-section">
+    <div class="ramp-header" id="rampHeader">
+      <span class="ramp-title">Ramp / Acceleration</span>
+      <span class="ramp-toggle" id="rampToggleLabel">off — click to enable</span>
+    </div>
+    <div class="ramp-body hidden" id="rampBody">
+      <div class="ramp-row">
+        <span class="ramp-label">Start at</span>
+        <input type="range" id="rampStartSlider" min="50" max="600" step="25" value="150">
+        <span class="ramp-val"><span id="rampStartDisplay">150</span> wpm</span>
+      </div>
+      <div class="ramp-row">
+        <span class="ramp-label">Ramp over</span>
+        <input type="range" id="rampDurSlider" min="2" max="60" step="1" value="10">
+        <span class="ramp-val"><span id="rampDurDisplay">10</span> sec</span>
+      </div>
+      <div class="ramp-note" id="rampNote">starts at 150 wpm → ramps to 500 wpm over 10 seconds</div>
+    </div>
+  </div>
+
+  <div class="buttons">
+    <button class="btn" id="prevBtn" disabled>↩ sentence</button>
+    <button class="btn primary" id="playBtn" disabled>play</button>
+    <button class="btn" id="restartBtn" disabled>↺ restart</button>
+  </div>
+
+  <div class="sentence-info" id="sentenceInfo"></div>
+
+  <div class="fulltext-section" id="fulltextSection" style="display:none">
+    <span class="section-label">Full Text — click any word to jump</span>
+    <div class="fulltext-view" id="fulltextView"></div>
+  </div>
+
+  <div class="text-section">
+    <span class="section-label">Text Input</span>
+    <textarea id="textInput" placeholder="Paste any text here — article, chapter, anything you want to read..."></textarea>
+    <button class="btn primary load-btn" id="loadBtn">load text</button>
+  </div>
+
+  <div class="keyboard-hints">
+    <span>space</span> play/pause &nbsp;·&nbsp;
+    <span>←</span> prev sentence &nbsp;·&nbsp;
+    <span>↑↓</span> speed ±25wpm
+  </div>
+</div>
+
+<script>
+  const state = {
+    words:[], sentences:[],
+    currentWord:0, isPlaying:false,
+    targetWpm:500, fontSize:45,
+    rampEnabled:false, rampStart:150, rampDuration:10,
+    playStartTime:null, pausedElapsed:0,
+    timer:null, loaded:false
+  };
+
+  function getORP(word) {
+    if (!word) return {before:'',pivot:' ',after:''};
+    const clean=word.replace(/[^a-zA-Z0-9]/g,'');
+    if (!clean.length) return {before:'',pivot:word[0],after:word.slice(1)};
+    const idx=clean.length===1?0:Math.max(0,Math.floor(clean.length*0.28));
+    let count=0,pivotIdx=0;
+    for (let i=0;i<word.length;i++) {
+      if (/[a-zA-Z0-9]/.test(word[i])) { if(count===idx){pivotIdx=i;break;} count++; }
+    }
+    return {before:word.slice(0,pivotIdx),pivot:word[pivotIdx],after:word.slice(pivotIdx+1)};
+  }
+
+  function getCurrentWpm(elapsedMs) {
+    if (!state.rampEnabled) return state.targetWpm;
+    const t=elapsedMs/1000;
+    if (t>=state.rampDuration) return state.targetWpm;
+    const p=t/state.rampDuration;
+    const eased=p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+    return Math.round(state.rampStart+(state.targetWpm-state.rampStart)*eased);
+  }
+
+  function getElapsed() {
+    if (!state.playStartTime) return state.pausedElapsed;
+    return state.pausedElapsed+(Date.now()-state.playStartTime);
+  }
+
+  function splitIntoSentences(words) {
+    const s=[];let start=0;
+    for (let i=0;i<words.length;i++) {
+      if (/[.!?]["']?$/.test(words[i])||i===words.length-1) { s.push({start,end:i}); start=i+1; }
+    }
+    return s;
+  }
+
+  function getCurrentSentenceIndex() {
+    for (let i=0;i<state.sentences.length;i++) {
+      if (state.currentWord>=state.sentences[i].start&&state.currentWord<=state.sentences[i].end) return i;
+    }
+    return 0;
+  }
+
+  function buildFullText() {
+    const c=document.getElementById('fulltextView'); c.innerHTML='';
+    state.words.forEach((word,i)=>{
+      const s=document.createElement('span');
+      s.className='ft-word'; s.textContent=word; s.dataset.idx=i;
+      s.addEventListener('click',()=>{ const wp=state.isPlaying; pause(); state.currentWord=i; displayWord(i); if(wp) play(); });
+      c.appendChild(s); c.appendChild(document.createTextNode(' '));
+    });
+  }
+
+  function updateHighlight(idx) {
+    const c=document.getElementById('fulltextView');
+    const prev=c.querySelector('.ft-word.active'); if(prev) prev.classList.remove('active');
+    const next=c.querySelector(`.ft-word[data-idx="${idx}"]`);
+    if (next) {
+      next.classList.add('active');
+      const vt=c.scrollTop,vb=vt+c.clientHeight;
+      const et=next.offsetTop-c.offsetTop,eb=et+next.offsetHeight;
+      if (et<vt+40||eb>vb-40) c.scrollTop=et-c.clientHeight/2;
+    }
+  }
+
+  function displayWord(idx) {
+    if (idx>=state.words.length) return;
+    const {before,pivot,after}=getORP(state.words[idx]);
+    document.getElementById('wBefore').textContent=before;
+    document.getElementById('wPivot').textContent=pivot;
+    document.getElementById('wAfter').textContent=after;
+    const stage=document.getElementById('wordStage');
+    stage.classList.remove('flash'); void stage.offsetWidth; stage.classList.add('flash');
+    const pct=((idx+1)/state.words.length)*100;
+    document.getElementById('progressBar').style.width=pct+'%';
+    document.getElementById('wordCounter').textContent=(idx+1)+' / '+state.words.length;
+    const si=getCurrentSentenceIndex();
+    document.getElementById('sentenceInfo').textContent='sentence '+(si+1)+' of '+state.sentences.length;
+    updateHighlight(idx);
+  }
+
+  function updateLiveWpm(wpm) {
+    document.getElementById('liveWpm').textContent=
+      (state.isPlaying&&state.rampEnabled)?wpm+' wpm':'';
+  }
+
+  function play() {
+    if (state.currentWord>=state.words.length) { state.currentWord=0; state.pausedElapsed=0; }
+    state.isPlaying=true; state.playStartTime=Date.now();
+    document.getElementById('playBtn').textContent='pause';
+    tick();
+  }
+
+  function tick() {
+    displayWord(state.currentWord);
+    const elapsed=getElapsed();
+    const wpm=getCurrentWpm(elapsed);
+    updateLiveWpm(wpm);
+    state.currentWord++;
+    if (state.currentWord>=state.words.length) {
+      pause(); document.getElementById('playBtn').textContent='done ✓';
+      document.getElementById('sentenceInfo').textContent='complete';
+      document.getElementById('liveWpm').textContent=''; return;
+    }
+    const prevWord=state.words[state.currentWord-1];
+    const isSentEnd=/[.!?]["']?$/.test(prevWord);
+    const delay=(60000/wpm)*(isSentEnd?2.5:1);
+    state.timer=setTimeout(tick,delay);
+  }
+
+  function pause() {
+    state.pausedElapsed=getElapsed(); state.playStartTime=null;
+    state.isPlaying=false; clearTimeout(state.timer);
+    document.getElementById('playBtn').textContent='play';
+    document.getElementById('liveWpm').textContent='';
+  }
+
+  function togglePlay() {
+    if (!state.loaded) return;
+    if (state.isPlaying) pause(); else play();
+  }
+
+  function prevSentence() {
+    pause();
+    const si=getCurrentSentenceIndex();
+    state.currentWord=state.sentences[Math.max(0,si-1)].start;
+    state.pausedElapsed=0;
+    displayWord(state.currentWord);
+  }
+
+  function restart() {
+    pause(); state.currentWord=0; state.pausedElapsed=0;
+    displayWord(0); document.getElementById('playBtn').textContent='play';
+  }
+
+  function loadText() {
+    const raw=document.getElementById('textInput').value.trim();
+    if (!raw) return;
+    const words=raw.split(/\s+/).filter(w=>w.length>0);
+    if (!words.length) return;
+    state.words=words; state.sentences=splitIntoSentences(words);
+    state.currentWord=0; state.pausedElapsed=0;
+    state.loaded=true; state.isPlaying=false; clearTimeout(state.timer);
+    document.getElementById('idleText').style.display='none';
+    document.getElementById('wordStage').style.display='flex';
+    document.getElementById('playBtn').disabled=false;
+    document.getElementById('playBtn').textContent='play';
+    document.getElementById('prevBtn').disabled=false;
+    document.getElementById('restartBtn').disabled=false;
+    document.getElementById('fulltextSection').style.display='flex';
+    buildFullText(); displayWord(0);
+  }
+
+  function updateRampNote() {
+    document.getElementById('rampNote').textContent=
+      'starts at '+state.rampStart+' wpm → ramps to '+state.targetWpm+' wpm over '+state.rampDuration+' seconds';
+  }
+
+  document.getElementById('rampHeader').addEventListener('click',()=>{
+    state.rampEnabled=!state.rampEnabled;
+    const label=document.getElementById('rampToggleLabel');
+    const body=document.getElementById('rampBody');
+    if (state.rampEnabled) { label.textContent='on'; label.classList.add('on'); body.classList.remove('hidden'); }
+    else { label.textContent='off — click to enable'; label.classList.remove('on'); body.classList.add('hidden'); }
+  });
+
+  document.getElementById('wpmSlider').addEventListener('input',function(){ state.targetWpm=parseInt(this.value); document.getElementById('wpmDisplay').textContent=state.targetWpm; updateRampNote(); });
+  document.getElementById('fontSlider').addEventListener('input',function(){ state.fontSize=parseInt(this.value); document.getElementById('fontDisplay').textContent=state.fontSize; document.getElementById('wordStage').style.fontSize=state.fontSize+'px'; });
+  document.getElementById('rampStartSlider').addEventListener('input',function(){ state.rampStart=parseInt(this.value); document.getElementById('rampStartDisplay').textContent=state.rampStart; updateRampNote(); });
+  document.getElementById('rampDurSlider').addEventListener('input',function(){ state.rampDuration=parseInt(this.value); document.getElementById('rampDurDisplay').textContent=state.rampDuration; updateRampNote(); });
+
+  document.getElementById('playBtn').addEventListener('click',togglePlay);
+  document.getElementById('prevBtn').addEventListener('click',prevSentence);
+  document.getElementById('restartBtn').addEventListener('click',restart);
+  document.getElementById('loadBtn').addEventListener('click',loadText);
+
+  document.addEventListener('keydown',function(e){
+    if (e.target===document.getElementById('textInput')) return;
+    if (e.code==='Space'){e.preventDefault();togglePlay();}
+    if (e.code==='ArrowLeft') prevSentence();
+    if (e.code==='ArrowUp'){ const s=document.getElementById('wpmSlider'); s.value=Math.min(1200,parseInt(s.value)+25); s.dispatchEvent(new Event('input')); }
+    if (e.code==='ArrowDown'){ const s=document.getElementById('wpmSlider'); s.value=Math.max(100,parseInt(s.value)-25); s.dispatchEvent(new Event('input')); }
+  });
+</script>
+</body>
+</html>
