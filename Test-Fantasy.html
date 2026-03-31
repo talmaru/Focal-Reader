@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Focal Reader — Reading Study</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Oswald:wght@200;300;400;500&display=swap');
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  :root {
+    --bg:#0e0e0e; --surface:#1a1a1a; --surface2:#222; --border:#333;
+    --text:#e8e3dc; --muted:#7a7570; --accent:#c8402a;
+    --accent2:#f0a870; --focus:#f5f0e8; --green:#4a9a6a; --greenDim:#2a5a3a;
+  }
+
+  body { background:var(--bg); color:var(--text); font-family:'Courier Prime',monospace; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:2rem 1rem 4rem; }
+
+  .app { width:100%; max-width:700px; display:flex; flex-direction:column; gap:2rem; }
+
+  /* HEADER */
+  .header { text-align:center; padding-bottom:1rem; border-bottom:1px solid var(--border); }
+  .header h1 { font-family:'Oswald',sans-serif; font-weight:200; font-size:1rem; letter-spacing:0.4em; text-transform:uppercase; color:#9a9590; }
+  .header h1 span { color:var(--accent); }
+  .header p { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.2em; color:var(--muted); text-transform:uppercase; margin-top:0.3rem; }
+
+  /* PHASE INDICATOR */
+  .phase-track { display:flex; align-items:center; gap:0; }
+  .phase-pip { flex:1; height:2px; background:var(--border); transition:background 0.4s; }
+  .phase-pip.done { background:var(--accent); }
+  .phase-pip.active { background:var(--accent2); }
+  .phase-dot { width:8px; height:8px; border-radius:50%; background:var(--border); flex-shrink:0; transition:background 0.4s; }
+  .phase-dot.done { background:var(--accent); }
+  .phase-dot.active { background:var(--accent2); }
+  .phase-label { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.2em; color:var(--muted); text-transform:uppercase; text-align:center; margin-top:0.5rem; }
+
+  /* CARDS */
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:2px; padding:2rem; display:flex; flex-direction:column; gap:1.5rem; animation:fadeIn 0.3s ease-out; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .card-title { font-family:'Oswald',sans-serif; font-weight:300; font-size:1.4rem; letter-spacing:0.1em; color:var(--focus); }
+  .card-subtitle { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.7rem; letter-spacing:0.3em; text-transform:uppercase; color:var(--accent); }
+  .card-body { font-size:0.92rem; line-height:1.8; color:var(--text); }
+  .card-body p + p { margin-top:1em; }
+
+  /* PASSAGE */
+  .passage-box { background:var(--bg); border:1px solid var(--border); border-radius:2px; padding:1.5rem; font-size:0.92rem; line-height:1.9; color:var(--text); position:relative; }
+  .passage-box::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:0.4; }
+
+  .timer-bar-wrap { height:2px; background:var(--border); border-radius:0; overflow:hidden; }
+  .timer-bar { height:100%; background:var(--accent2); width:0%; transition:none; }
+
+  /* QUESTIONS */
+  .question-block { display:flex; flex-direction:column; gap:1rem; padding-bottom:1.5rem; border-bottom:1px solid var(--border); }
+  .question-block:last-child { border-bottom:none; padding-bottom:0; }
+  .q-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.65rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--accent); }
+  .q-text { font-size:0.92rem; line-height:1.6; color:var(--focus); }
+
+  /* MC OPTIONS */
+  .mc-options { display:flex; flex-direction:column; gap:0.5rem; }
+  .mc-opt { display:flex; align-items:flex-start; gap:0.75rem; padding:0.6rem 0.9rem; border:1px solid var(--border); border-radius:1px; cursor:pointer; transition:all 0.15s; font-size:0.88rem; line-height:1.5; color:var(--text); background:var(--bg); }
+  .mc-opt:hover { border-color:var(--muted); color:var(--focus); }
+  .mc-opt.selected { border-color:var(--accent2); color:var(--focus); background:rgba(240,168,112,0.06); }
+  .mc-opt.correct { border-color:var(--green); color:var(--focus); background:rgba(74,154,106,0.1); }
+  .mc-opt.wrong { border-color:var(--accent); color:var(--muted); background:rgba(200,64,42,0.06); }
+  .mc-opt.correct.selected { border-color:var(--green); }
+  .mc-key { font-family:'Oswald',sans-serif; font-weight:400; font-size:0.8rem; color:var(--muted); flex-shrink:0; padding-top:1px; }
+  .mc-opt.selected .mc-key { color:var(--accent2); }
+  .mc-opt.correct .mc-key { color:var(--green); }
+
+  /* ORDERING TASK */
+  .order-items { display:flex; flex-direction:column; gap:0.5rem; }
+  .order-item { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.9rem; border:1px solid var(--border); border-radius:1px; cursor:pointer; transition:all 0.15s; font-size:0.88rem; line-height:1.5; color:var(--text); background:var(--bg); user-select:none; }
+  .order-item:hover { border-color:var(--muted); }
+  .order-item.placed { border-color:var(--accent2); background:rgba(240,168,112,0.06); }
+  .order-item.correct-order { border-color:var(--green); background:rgba(74,154,106,0.1); }
+  .order-item.wrong-order { border-color:var(--accent); background:rgba(200,64,42,0.06); }
+  .order-num { font-family:'Oswald',sans-serif; font-weight:400; font-size:0.85rem; color:var(--muted); min-width:1.2rem; text-align:center; flex-shrink:0; }
+  .order-item.placed .order-num { color:var(--accent2); }
+  .order-hint { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.15em; color:var(--muted); text-transform:uppercase; }
+
+  /* RSVP READER */
+  .rsvp-wrap { display:flex; flex-direction:column; gap:1rem; }
+  .display-area { background:var(--bg); border:1px solid var(--border); border-radius:2px; height:160px; position:relative; overflow:hidden; }
+  .display-area::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:0.5; }
+  .pivot-guide { position:absolute; top:0; bottom:0; left:50%; width:1px; background:var(--accent); opacity:0.12; }
+  .word-stage { position:absolute; top:50%; left:0; right:0; transform:translateY(-50%); display:flex; align-items:baseline; justify-content:center; font-size:42px; }
+  .word-before { display:block; text-align:right; width:50%; padding-right:2px; color:var(--text); white-space:nowrap; }
+  .word-pivot { display:block; color:var(--accent); font-weight:700; flex-shrink:0; }
+  .word-after { display:block; text-align:left; width:50%; padding-left:2px; color:var(--text); white-space:nowrap; }
+  .word-stage.flash { animation:flashIn 0.07s ease-out; }
+  @keyframes flashIn { 0%{opacity:0.15;transform:translateY(-50%) scale(0.94)} 100%{opacity:1;transform:translateY(-50%) scale(1)} }
+  .rsvp-idle { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-family:'Oswald',sans-serif; font-weight:200; font-size:0.85rem; letter-spacing:0.2em; color:var(--muted); text-transform:uppercase; white-space:nowrap; }
+  .progress-bar-wrap { height:2px; background:var(--border); width:100%; position:absolute; bottom:0; }
+  .progress-bar-fill { height:100%; background:var(--accent); transition:width 0.08s linear; }
+  .rsvp-counter { position:absolute; bottom:8px; right:12px; font-size:0.65rem; color:var(--muted); letter-spacing:0.1em; font-family:'Oswald',sans-serif; }
+  .rsvp-speed { position:absolute; bottom:8px; left:12px; font-size:0.65rem; color:var(--accent2); letter-spacing:0.1em; font-family:'Oswald',sans-serif; }
+  .rsvp-controls { display:flex; align-items:center; justify-content:center; gap:0.75rem; }
+
+  /* RESULTS */
+  .results-grid { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:2px; overflow:hidden; }
+  .results-col { background:var(--surface); padding:1.5rem; display:flex; flex-direction:column; gap:1rem; }
+  .results-col-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.65rem; letter-spacing:0.3em; text-transform:uppercase; color:var(--accent); }
+  .results-stat { display:flex; flex-direction:column; gap:0.2rem; }
+  .results-stat-val { font-family:'Oswald',sans-serif; font-weight:400; font-size:2rem; color:var(--focus); line-height:1; }
+  .results-stat-label { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted); }
+  .results-delta { background:var(--bg); border:1px solid var(--border); border-radius:2px; padding:1.2rem; display:flex; flex-direction:column; gap:0.5rem; }
+  .results-delta-label { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--muted); }
+  .results-delta-val { font-family:'Oswald',sans-serif; font-weight:400; font-size:1.2rem; }
+  .results-delta-val.positive { color:var(--green); }
+  .results-delta-val.negative { color:var(--accent); }
+  .results-delta-val.neutral { color:var(--muted); }
+  .share-box { background:var(--bg); border:1px solid var(--border); border-radius:2px; padding:1rem; font-size:0.8rem; line-height:1.7; color:var(--muted); font-family:'Courier Prime',monospace; white-space:pre-wrap; }
+
+  /* BUTTONS */
+  .btn { background:none; border:1px solid var(--border); color:var(--text); font-family:'Courier Prime',monospace; font-size:0.82rem; padding:0.55rem 1.2rem; cursor:pointer; letter-spacing:0.08em; transition:all 0.15s; border-radius:1px; }
+  .btn:hover { border-color:var(--muted); color:var(--focus); }
+  .btn.primary { border-color:var(--accent); color:var(--accent); }
+  .btn.primary:hover { background:var(--accent); color:var(--bg); }
+  .btn.full { width:100%; text-align:center; padding:0.7rem; }
+  .btn:disabled { opacity:0.3; cursor:not-allowed; }
+  .btn-row { display:flex; gap:0.75rem; justify-content:flex-end; }
+
+  /* INFO BOX */
+  .info-box { background:var(--bg); border:1px solid var(--border); border-left:2px solid var(--accent); padding:0.9rem 1rem; font-size:0.85rem; line-height:1.6; color:var(--muted); }
+  .info-box strong { color:var(--text); }
+
+  /* SPEED DISPLAY */
+  .speed-display { display:flex; align-items:center; gap:1rem; background:var(--bg); border:1px solid var(--border); padding:0.75rem 1rem; border-radius:2px; }
+  .speed-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--muted); }
+  .speed-val { font-family:'Oswald',sans-serif; font-weight:400; font-size:1.2rem; color:var(--accent2); margin-left:auto; }
+
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>FOCAL<span>—</span>READER</h1>
+    <p>Reading Comprehension Study</p>
+  </div>
+
+  <!-- PHASE TRACK -->
+  <div>
+    <div class="phase-track" id="phaseTrack">
+      <div class="phase-dot active" id="pd0"></div>
+      <div class="phase-pip" id="pp0"></div>
+      <div class="phase-dot" id="pd1"></div>
+      <div class="phase-pip" id="pp1"></div>
+      <div class="phase-dot" id="pd2"></div>
+      <div class="phase-pip" id="pp2"></div>
+      <div class="phase-dot" id="pd3"></div>
+      <div class="phase-pip" id="pp3"></div>
+      <div class="phase-dot" id="pd4"></div>
+      <div class="phase-pip" id="pp4"></div>
+      <div class="phase-dot" id="pd5"></div>
+      <div class="phase-pip" id="pp5"></div>
+      <div class="phase-dot" id="pd6"></div>
+    </div>
+    <div class="phase-label" id="phaseLabel">introduction</div>
+  </div>
+
+  <!-- PHASE 0: INTRO -->
+  <div class="card" id="phase0">
+    <div>
+      <div class="card-subtitle">Welcome</div>
+      <div class="card-title">Reading Study</div>
+    </div>
+    <div class="card-body">
+      <p>This study measures how reading speed and comprehension interact when using fixed-focus reading compared to normal reading.</p>
+      <p>You will read two short passages and answer questions about each. The process takes roughly five minutes.</p>
+      <p>Read at whatever pace feels natural to you. There is no penalty for taking your time.</p>
+    </div>
+    <div class="info-box">
+      <strong>No data is collected.</strong> Your results are calculated locally and never leave your browser. At the end you will see your own numbers and can choose to share them or not.
+    </div>
+    <button class="btn primary full" onclick="goPhase(1)">begin study →</button>
+  </div>
+
+  <!-- PHASE 1: NORMAL READING -->
+  <div class="card hidden" id="phase1">
+    <div>
+      <div class="card-subtitle">Phase 1 of 6 — Standard Reading</div>
+      <div class="card-title">Read the passage below</div>
+    </div>
+    <div class="card-body">Read at your normal pace. Press <strong>done reading</strong> when you reach the end.</div>
+    <div class="timer-bar-wrap"><div class="timer-bar" id="timerBar"></div></div>
+    <div class="passage-box" id="passageA"></div>
+    <div class="btn-row">
+      <button class="btn primary" id="doneReadingBtn" onclick="finishReading()">done reading →</button>
+    </div>
+  </div>
+
+  <!-- PHASE 2: QUESTIONS A -->
+  <div class="card hidden" id="phase2">
+    <div>
+      <div class="card-subtitle">Phase 2 of 6 — Comprehension</div>
+      <div class="card-title">Questions: The Cartographer's Seal</div>
+    </div>
+    <div id="questionsA"></div>
+    <div class="btn-row">
+      <button class="btn primary" id="submitABtn" onclick="submitA()" disabled>submit answers →</button>
+    </div>
+  </div>
+
+  <!-- PHASE 3: RSVP INTRO -->
+  <div class="card hidden" id="phase3">
+    <div>
+      <div class="card-subtitle">Phase 3 of 6 — Method Introduction</div>
+      <div class="card-title">Fixed Visual Focus Reading</div>
+    </div>
+    <div class="card-body">
+      <p>The next passage will be presented one word at a time using a technique called Rapid Serial Visual Presentation. A single letter in each word is highlighted — your eye should rest on that point and let the words come to you.</p>
+      <p>Your reading speed has been set based on your pace in phase one. The reader will start slower and accelerate to that speed over a few seconds.</p>
+    </div>
+    <div class="speed-display">
+      <span class="speed-label">Your natural reading speed</span>
+      <span class="speed-val" id="naturalSpeedDisplay">— wpm</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:0.6rem;">
+      <div class="card-subtitle">Select Difficulty</div>
+      <div style="display:flex;gap:0.5rem;" id="difficultyToggle">
+        <button class="toggle-btn active" data-diff="normal"   onclick="setDifficulty(this)" style="flex:1;padding:0.7rem 0.4rem;display:flex;flex-direction:column;gap:0.2rem;align-items:center;">
+          <span style="font-size:0.75rem;letter-spacing:0.15em;">NORMAL</span>
+          <span style="font-size:0.6rem;color:var(--muted);letter-spacing:0.05em;">baseline speed</span>
+        </button>
+        <button class="toggle-btn" data-diff="moderate" onclick="setDifficulty(this)" style="flex:1;padding:0.7rem 0.4rem;display:flex;flex-direction:column;gap:0.2rem;align-items:center;">
+          <span style="font-size:0.75rem;letter-spacing:0.15em;">MODERATE</span>
+          <span style="font-size:0.6rem;color:var(--muted);letter-spacing:0.05em;">125% · max 1000wpm</span>
+        </button>
+        <button class="toggle-btn" data-diff="hard" onclick="setDifficulty(this)" style="flex:1;padding:0.7rem 0.4rem;display:flex;flex-direction:column;gap:0.2rem;align-items:center;">
+          <span style="font-size:0.75rem;letter-spacing:0.15em;">HARD</span>
+          <span style="font-size:0.6rem;color:var(--muted);letter-spacing:0.05em;">150% · max 1000wpm</span>
+        </button>
+      </div>
+      <div class="speed-display">
+        <span class="speed-label">RSVP target speed</span>
+        <span class="speed-val" id="rsvpTargetDisplay">— wpm</span>
+      </div>
+    </div>
+
+    <div class="info-box">When the reader finishes the passage it will advance automatically. You do not need to press anything.</div>
+    <button class="btn primary full" onclick="goPhase(4)">begin RSVP reading →</button>
+  </div>
+
+  <!-- PHASE 4: RSVP READING -->
+  <div class="card hidden" id="phase4">
+    <div>
+      <div class="card-subtitle">Phase 4 of 6 — RSVP Reading</div>
+      <div class="card-title">The Ferryman's Debt</div>
+    </div>
+    <div class="rsvp-wrap">
+      <div class="display-area">
+        <div class="pivot-guide"></div>
+        <div class="rsvp-idle" id="rsvpIdle">press play to begin</div>
+        <div class="word-stage hidden" id="rsvpStage">
+          <span class="word-before" id="rsvpBefore"></span>
+          <span class="word-pivot" id="rsvpPivot"></span>
+          <span class="word-after" id="rsvpAfter"></span>
+        </div>
+        <div class="rsvp-speed" id="rsvpSpeed"></div>
+        <div class="rsvp-counter" id="rsvpCounter"></div>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="rsvpProgress" style="width:0%"></div></div>
+      </div>
+      <div class="rsvp-controls">
+        <button class="btn" id="rsvpPrevBtn" onclick="rsvpPrevSentence()">↩ sentence</button>
+        <button class="btn primary" id="rsvpPlayBtn" onclick="rsvpToggle()">play</button>
+        <button class="btn" onclick="rsvpRestart()">↺ restart</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 5: QUESTIONS B -->
+  <div class="card hidden" id="phase5">
+    <div>
+      <div class="card-subtitle">Phase 5 of 6 — Comprehension</div>
+      <div class="card-title">Questions: The Ferryman's Debt</div>
+    </div>
+    <div id="questionsB"></div>
+    <div class="btn-row">
+      <button class="btn primary" id="submitBBtn" onclick="submitB()" disabled>submit answers →</button>
+    </div>
+  </div>
+
+  <!-- PHASE 6: RESULTS -->
+  <div class="card hidden" id="phase6">
+    <div>
+      <div class="card-subtitle">Phase 6 of 6 — Results</div>
+      <div class="card-title">Your Reading Profile</div>
+    </div>
+    <div class="results-grid">
+      <div class="results-col">
+        <div class="results-col-label">Standard Reading</div>
+        <div class="results-stat">
+          <div class="results-stat-val" id="r-wpm-a">—</div>
+          <div class="results-stat-label">words per minute</div>
+        </div>
+        <div class="results-stat">
+          <div class="results-stat-val" id="r-score-a">—</div>
+          <div class="results-stat-label">comprehension score</div>
+        </div>
+      </div>
+      <div class="results-col">
+        <div class="results-col-label">RSVP Reading</div>
+        <div class="results-stat">
+          <div class="results-stat-val" id="r-wpm-b">—</div>
+          <div class="results-stat-label">words per minute</div>
+        </div>
+        <div class="results-stat">
+          <div class="results-stat-val" id="r-score-b">—</div>
+          <div class="results-stat-label">comprehension score</div>
+        </div>
+      </div>
+    </div>
+    <div class="results-delta" id="resultsDelta"></div>
+    <div>
+      <div class="card-subtitle" style="margin-bottom:0.5rem">Shareable Summary</div>
+      <div class="share-box" id="shareBox"></div>
+    </div>
+    <button class="btn full" onclick="location.reload()">↺ run again</button>
+  </div>
+
+</div>
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────────────
+
+const PASSAGE_A = `Mira had been walking for three days when she found the sealed door. It sat at the base of a cliff face where no road led, half-hidden by a curtain of hanging moss. The seal on its face — a compass rose pressed in silver — matched the symbol on the map she carried, the one her mentor had left her with no explanation beyond the words do not open this alone.
+
+She had come alone anyway.
+
+The seal released when she pressed her thumb to its center, and the door swung inward without a sound. The chamber beyond was small and dry, its walls lined with clay jars, each one stoppered with wax and labeled in her mentor's handwriting. She took the nearest jar from the shelf and read the label: water from the Mirren flood, third year of the Pale King. She set it carefully back.
+
+At the center of the chamber stood a wooden table. On it sat a single object — a compass, identical to the one she wore around her neck, the one her mentor had given her on her first day of training. She picked it up and found it heavier than hers. When she opened it, the needle did not point north. It pointed back the way she had come.
+
+She understood then what the room was. Not a vault. A message.
+
+She took the compass, left everything else untouched, and pulled the door shut behind her. The seal re-formed with a sound like ice cracking. She did not look back.`;
+
+const PASSAGE_B = `Aldric reached the river crossing at dusk, when the water ran black and the far bank was barely visible through the mist. The ferryman was already there, as if he had been expecting him, though Aldric had told no one of his route.
+
+The price was unusual. Not coin, the ferryman said, but memory. One memory, freely given, and the crossing was his. Aldric had been warned about river bargains, but the bridge upstream had been destroyed three days ago — he had seen the wreckage himself — and the thing he carried could not wait.
+
+He thought carefully about what he could afford to lose. He chose a winter afternoon from his childhood, something small and warm that he had not thought of in years. The ferryman placed one finger to Aldric's temple and the memory lifted away cleanly, like a page removed from a book.
+
+The crossing was smooth. When he stepped off on the far bank, Aldric turned to ask the ferryman something, but the boat was already back at the midpoint, neither coming nor going. He tried to remember why he had hesitated before choosing the memory to give, but the reason was gone. He only knew that he had hesitated, and that the hesitation had felt important.
+
+He adjusted the satchel on his shoulder and walked on. The mist closed behind him. By the time he reached the first lights of the town, he had stopped wondering what he had forgotten, which was, he would later learn, exactly what the ferryman counted on.`;
+
+const QUESTIONS_A = {
+  order: {
+    label: "Arrange these events in the order they occur in the passage",
+    items: [
+      { id:'a', text:"Mira reads a label on one of the jars" },
+      { id:'b', text:"Mira presses her thumb to the seal" },
+      { id:'c', text:"The seal re-forms behind her" },
+      { id:'d', text:"Mira opens the compass and reads its needle" }
+    ],
+    correct: ['b','a','d','c']
+  },
+  mc: [
+    {
+      id:'aq1',
+      text:'The passage says Mira "had come alone anyway." What does this most likely tell us about her relationship with her mentor\'s instructions?',
+      options:['She didn\'t receive the instruction in time','She deliberately chose to disobey it','She believed the instruction didn\'t apply to her situation','She had forgotten what her mentor told her'],
+      correct:1
+    },
+    {
+      id:'aq2',
+      text:'Why does Mira leave everything in the chamber except the compass?',
+      options:['The other items were too fragile to move','She was in a hurry to leave','The compass was the only thing intended for her','She planned to return for the rest later'],
+      correct:2
+    },
+    {
+      id:'aq3',
+      text:'What is most likely the reason the compass needle points back the way Mira came, rather than north?',
+      options:['The compass is broken','It is pointing toward a specific destination rather than geographic north','Magnetic north has shifted in this region','It is responding to the seal on the door'],
+      correct:1
+    },
+    {
+      id:'aq4',
+      text:'When Mira concludes the room is "a message" rather than "a vault," what has she understood?',
+      options:['The room contains instructions written on the walls','The contents were never meant to be stored — they were meant to be found and understood by her specifically','Her mentor left the room for someone else and she found it by accident','The compass will lead her to her mentor'],
+      correct:1
+    }
+  ]
+};
+
+const QUESTIONS_B = {
+  order: {
+    label: "Arrange these events in the order they occur in the passage",
+    items: [
+      { id:'a', text:"Aldric chooses which memory to surrender" },
+      { id:'b', text:"Aldric discovers he cannot remember why he hesitated" },
+      { id:'c', text:"The ferryman takes Aldric's memory" },
+      { id:'d', text:"Aldric sees the destroyed bridge upstream" }
+    ],
+    correct: ['d','a','c','b']
+  },
+  mc: [
+    {
+      id:'bq1',
+      text:'Why is it significant that the ferryman "was already there, as if he had been expecting" Aldric?',
+      options:['The ferryman works on a predictable schedule','Someone had warned the ferryman Aldric was coming','The ferryman may have had a role in ensuring Aldric had no other crossing option','The ferryman lives at the crossing permanently'],
+      correct:2
+    },
+    {
+      id:'bq2',
+      text:'Aldric chose "something small and warm that he had not thought of in years." What does this choice reveal about him?',
+      options:['He has a poor memory and struggles to recall his childhood','He tried to minimize his loss by giving away something he considered unimportant','He wanted to give the ferryman something valuable','He was following advice he had been given about river bargains'],
+      correct:1
+    },
+    {
+      id:'bq3',
+      text:'The passage ends by saying Aldric "stopped wondering what he had forgotten, which was exactly what the ferryman counted on." What does this imply about the true nature of the bargain?',
+      options:['The ferryman wanted Aldric to forget the crossing entirely','The forgetting of the loss is part of the price — and possibly more valuable to the ferryman than the memory itself','The ferryman was trying to protect Aldric from grief','The ferryman intended to return the memory later'],
+      correct:1
+    },
+    {
+      id:'bq4',
+      text:'Aldric cannot remember why his hesitation "felt important." What was he most likely close to realizing before the memory was taken?',
+      options:['That the item he was carrying was less urgent than he believed','That the memory he chose was not as unimportant as he thought','That the ferryman was not what he appeared to be','That he had crossed this river before'],
+      correct:1
+    }
+  ]
+};
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+
+const study = {
+  difficulty: 'normal',
+  currentPhase: 0,
+  readStart: null,
+  naturalWpm: 0,
+  rsvpWpm: 0,
+  scoreA: 0,
+  scoreB: 0,
+  orderA: [],
+  orderB: [],
+  mcA: {},
+  mcB: {},
+  submitted: { a: false, b: false }
+};
+
+const PHASE_LABELS = [
+  'introduction',
+  'standard reading',
+  'comprehension — passage 1',
+  'method introduction',
+  'rsvp reading',
+  'comprehension — passage 2',
+  'results'
+];
+
+// ── PHASE MANAGEMENT ──────────────────────────────────────────────────────────
+
+function goPhase(n) {
+  // Hide current
+  document.getElementById('phase' + study.currentPhase).classList.add('hidden');
+
+  // Update tracker
+  for (let i = 0; i < 7; i++) {
+    const dot = document.getElementById('pd' + i);
+    const pip = document.getElementById('pp' + i);
+    dot.className = 'phase-dot' + (i < n ? ' done' : i === n ? ' active' : '');
+    if (pip) pip.className = 'phase-pip' + (i < n ? ' done' : '');
+  }
+  document.getElementById('phaseLabel').textContent = PHASE_LABELS[n];
+
+  study.currentPhase = n;
+  document.getElementById('phase' + n).classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  if (n === 1) startReading();
+  if (n === 2) buildQuestions('A');
+  if (n === 3) showSpeedSummary();
+  if (n === 4) initRSVP();
+  if (n === 5) buildQuestions('B');
+  if (n === 6) showResults();
+}
+
+// ── PHASE 1: READING ──────────────────────────────────────────────────────────
+
+function startReading() {
+  // Render passage
+  const box = document.getElementById('passageA');
+  box.innerHTML = '';
+  PASSAGE_A.split('\n\n').forEach(para => {
+    if (!para.trim()) return;
+    const p = document.createElement('p');
+    p.textContent = para.trim();
+    p.style.marginBottom = '1em';
+    box.appendChild(p);
+  });
+
+  study.readStart = Date.now();
+
+  // Animate timer bar gently so it doesn't signal urgency
+  const bar = document.getElementById('timerBar');
+  bar.style.transition = 'width 120s linear';
+  setTimeout(() => bar.style.width = '60%', 100);
+}
+
+function finishReading() {
+  const elapsed = (Date.now() - study.readStart) / 1000 / 60; // minutes
+  const wordCount = PASSAGE_A.trim().split(/\s+/).length;
+  study.naturalWpm = Math.round(wordCount / elapsed);
+  goPhase(2);
+}
+
+// ── QUESTION BUILDER ──────────────────────────────────────────────────────────
+
+function buildQuestions(set) {
+  const data = set === 'A' ? QUESTIONS_A : QUESTIONS_B;
+  const container = document.getElementById('questions' + set);
+  const orderKey = 'order' + set;
+  const mcKey = 'mc' + set;
+  container.innerHTML = '';
+
+  // Reset state
+  study[orderKey] = [];
+  study[mcKey] = {};
+
+  // Ordering task
+  const orderBlock = document.createElement('div');
+  orderBlock.className = 'question-block';
+  orderBlock.innerHTML = `
+    <div class="q-label">Ordering Task</div>
+    <div class="q-text">${data.order.label}</div>
+    <div class="order-hint">Click items in the order they happened — click again to deselect</div>
+    <div class="order-items" id="orderItems${set}"></div>
+  `;
+  container.appendChild(orderBlock);
+
+  const orderContainer = orderBlock.querySelector('#orderItems' + set);
+  data.order.items.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'order-item';
+    el.dataset.id = item.id;
+    el.innerHTML = `<span class="order-num">—</span><span>${item.text}</span>`;
+    el.addEventListener('click', () => toggleOrderItem(el, set, data));
+    orderContainer.appendChild(el);
+  });
+
+  // MC questions
+  data.mc.forEach((q, qi) => {
+    const block = document.createElement('div');
+    block.className = 'question-block';
+    block.innerHTML = `
+      <div class="q-label">Question ${qi + 1}</div>
+      <div class="q-text">${q.text}</div>
+      <div class="mc-options" id="mc_${q.id}"></div>
+    `;
+    container.appendChild(block);
+
+    const keys = ['A','B','C','D'];
+    const optContainer = block.querySelector('#mc_' + q.id);
+    q.options.forEach((opt, oi) => {
+      const el = document.createElement('div');
+      el.className = 'mc-opt';
+      el.innerHTML = `<span class="mc-key">${keys[oi]}</span><span>${opt}</span>`;
+      el.addEventListener('click', () => selectMC(q.id, oi, set, el, optContainer));
+      optContainer.appendChild(el);
+    });
+  });
+
+  checkSubmitReady(set);
+}
+
+function toggleOrderItem(el, set, data) {
+  const orderKey = 'order' + set;
+  const id = el.dataset.id;
+  const arr = study[orderKey];
+  const idx = arr.indexOf(id);
+
+  if (idx !== -1) {
+    // Deselect — remove from array, re-number all
+    arr.splice(idx, 1);
+  } else if (arr.length < data.order.items.length) {
+    arr.push(id);
+  }
+
+  // Re-render numbers
+  const allItems = document.querySelectorAll(`#orderItems${set} .order-item`);
+  allItems.forEach(item => {
+    const itemId = item.dataset.id;
+    const pos = arr.indexOf(itemId);
+    const numEl = item.querySelector('.order-num');
+    if (pos !== -1) {
+      numEl.textContent = pos + 1;
+      item.classList.add('placed');
+    } else {
+      numEl.textContent = '—';
+      item.classList.remove('placed');
+    }
+  });
+
+  checkSubmitReady(set);
+}
+
+function selectMC(qid, optIdx, set, el, container) {
+  if (study.submitted[set.toLowerCase()]) return;
+  const mcKey = 'mc' + set;
+  study[mcKey][qid] = optIdx;
+  container.querySelectorAll('.mc-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  checkSubmitReady(set);
+}
+
+function checkSubmitReady(set) {
+  const data = set === 'A' ? QUESTIONS_A : QUESTIONS_B;
+  const orderKey = 'order' + set;
+  const mcKey = 'mc' + set;
+  const btn = document.getElementById('submit' + set + 'Btn');
+  const orderComplete = study[orderKey].length === data.order.items.length;
+  const mcComplete = Object.keys(study[mcKey]).length === data.mc.length;
+  btn.disabled = !(orderComplete && mcComplete);
+}
+
+function scoreAndReveal(set) {
+  const data = set === 'A' ? QUESTIONS_A : QUESTIONS_B;
+  const orderKey = 'order' + set;
+  const mcKey = 'mc' + set;
+  let score = 0;
+  const total = 5; // 1 order + 4 mc
+
+  // Score ordering
+  const userOrder = study[orderKey];
+  const correctOrder = data.order.correct;
+  const orderCorrect = userOrder.every((id, i) => id === correctOrder[i]);
+  if (orderCorrect) score++;
+
+  // Reveal order items — use inline styles to bypass CSS specificity conflicts
+  const allItems = document.querySelectorAll(`#orderItems${set} .order-item`);
+  allItems.forEach(item => {
+    const id = item.dataset.id;
+    const userPos = userOrder.indexOf(id);
+    const correctPos = correctOrder.indexOf(id);
+    // Strip all state classes cleanly
+    item.classList.remove('placed', 'correct-order', 'wrong-order');
+    item.style.transition = 'none';
+    if (userPos === correctPos) {
+      item.style.borderColor = '#4a9a6a';
+      item.style.background = 'rgba(74,154,106,0.12)';
+      item.style.color = 'var(--focus)';
+    } else {
+      item.style.borderColor = '#c8402a';
+      item.style.background = 'rgba(200,64,42,0.08)';
+      item.style.color = 'var(--muted)';
+      // Show what the correct position was
+      item.querySelector('.order-num').textContent = correctPos + 1;
+    }
+  });
+
+  // Score MC
+  const keys = ['A','B','C','D'];
+  data.mc.forEach(q => {
+    const userAns = study[mcKey][q.id];
+    const isCorrect = userAns === q.correct;
+    if (isCorrect) score++;
+    const container = document.getElementById('mc_' + q.id);
+    container.querySelectorAll('.mc-opt').forEach((opt, oi) => {
+      opt.style.cursor = 'default';
+      if (oi === q.correct) opt.classList.add('correct');
+      else if (oi === userAns && !isCorrect) opt.classList.add('wrong');
+    });
+  });
+
+  return { score, total };
+}
+
+function submitA() {
+  study.submitted.a = true;
+  document.getElementById('submitABtn').disabled = true;
+  document.getElementById('submitABtn').textContent = 'submitted';
+  const { score, total } = scoreAndReveal('A');
+  study.scoreA = score;
+
+  // Small delay then advance
+  setTimeout(() => {
+    const advance = document.createElement('button');
+    advance.className = 'btn primary full';
+    advance.textContent = `scored ${score}/${total} — continue →`;
+    advance.onclick = () => goPhase(3);
+    document.getElementById('phase2').appendChild(advance);
+    advance.scrollIntoView({ behavior: 'smooth' });
+  }, 600);
+}
+
+function submitB() {
+  study.submitted.b = true;
+  document.getElementById('submitBBtn').disabled = true;
+  document.getElementById('submitBBtn').textContent = 'submitted';
+  const { score, total } = scoreAndReveal('B');
+  study.scoreB = score;
+
+  setTimeout(() => {
+    const advance = document.createElement('button');
+    advance.className = 'btn primary full';
+    advance.textContent = `scored ${score}/${total} — see results →`;
+    advance.onclick = () => goPhase(6);
+    document.getElementById('phase5').appendChild(advance);
+    advance.scrollIntoView({ behavior: 'smooth' });
+  }, 600);
+}
+
+// ── PHASE 3: SPEED SUMMARY ────────────────────────────────────────────────────
+
+const DIFFICULTY = {
+  normal:   { mult: 1.0,  cap: Infinity, label: 'Normal'   },
+  moderate: { mult: 1.25, cap: 1000,    label: 'Moderate' },
+  hard:     { mult: 1.5,  cap: 1000,    label: 'Hard'     }
+};
+
+function calcRsvpWpm(naturalWpm) {
+  const d = DIFFICULTY[study.difficulty];
+  return Math.min(Math.round(naturalWpm * d.mult), d.cap);
+}
+
+function updateRsvpTargetDisplay() {
+  const wpm = calcRsvpWpm(study.naturalWpm);
+  document.getElementById('rsvpTargetDisplay').textContent = wpm + ' wpm';
+}
+
+function setDifficulty(btn) {
+  study.difficulty = btn.dataset.diff;
+  document.querySelectorAll('#difficultyToggle .toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateRsvpTargetDisplay();
+}
+
+function showSpeedSummary() {
+  document.getElementById('naturalSpeedDisplay').textContent = study.naturalWpm + ' wpm';
+  updateRsvpTargetDisplay();
+}
+
+// ── PHASE 4: RSVP ────────────────────────────────────────────────────────────
+
+const rsvp = {
+  tokens: [], sentences: [],
+  current: 0, isPlaying: false,
+  targetWpm: 300, rampStart: 150, rampDuration: 12,
+  playStartTime: null, pausedElapsed: 0,
+  timer: null, done: false
+};
+
+function parseRSVP(text) {
+  const tokens = [];
+  text.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (tokens.length > 0) tokens[tokens.length - 1].para = true;
+      return;
+    }
+    trimmed.split(/\s+/).forEach((word, wi, arr) => {
+      tokens.push({ word, sent: /[.!?]["']?$/.test(word), para: false });
+    });
+  });
+  return tokens;
+}
+
+function buildRSVPSentences(tokens) {
+  const s = []; let start = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].sent || tokens[i].para || i === tokens.length - 1) {
+      s.push({ start, end: i }); start = i + 1;
+    }
+  }
+  return s;
+}
+
+function rsvpORP(word) {
+  if (!word) return { before: '', pivot: ' ', after: '' };
+  const clean = word.replace(/[^a-zA-Z0-9]/g, '');
+  if (!clean.length) return { before: '', pivot: word[0], after: word.slice(1) };
+  const idx = clean.length === 1 ? 0 : Math.max(0, Math.floor(clean.length * 0.28));
+  let count = 0, pivotIdx = 0;
+  for (let i = 0; i < word.length; i++) {
+    if (/[a-zA-Z0-9]/.test(word[i])) { if (count === idx) { pivotIdx = i; break; } count++; }
+  }
+  return { before: word.slice(0, pivotIdx), pivot: word[pivotIdx], after: word.slice(pivotIdx + 1) };
+}
+
+function rsvpWpm(elapsed) {
+  const t = elapsed / 1000;
+  if (t >= rsvp.rampDuration) return rsvp.targetWpm;
+  const p = t / rsvp.rampDuration;
+  const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+  return Math.round(rsvp.rampStart + (rsvp.targetWpm - rsvp.rampStart) * e);
+}
+
+function rsvpElapsed() {
+  if (!rsvp.playStartTime) return rsvp.pausedElapsed;
+  return rsvp.pausedElapsed + (Date.now() - rsvp.playStartTime);
+}
+
+function initRSVP() {
+  // Apply difficulty multiplier to natural WPM
+  const target = Math.max(150, calcRsvpWpm(study.naturalWpm));
+  rsvp.targetWpm = target;
+  rsvp.rampStart = Math.round(target * 0.4);
+  rsvp.tokens = parseRSVP(PASSAGE_B);
+  rsvp.sentences = buildRSVPSentences(rsvp.tokens);
+  rsvp.current = 0;
+  rsvp.pausedElapsed = 0;
+  rsvp.done = false;
+  study.rsvpWpm = target;
+  rsvpDisplay(0);
+}
+
+function rsvpDisplay(idx) {
+  if (idx >= rsvp.tokens.length) return;
+  const { before, pivot, after } = rsvpORP(rsvp.tokens[idx].word);
+  document.getElementById('rsvpBefore').textContent = before;
+  document.getElementById('rsvpPivot').textContent = pivot;
+  document.getElementById('rsvpAfter').textContent = after;
+  const stage = document.getElementById('rsvpStage');
+  stage.classList.remove('flash'); void stage.offsetWidth; stage.classList.add('flash');
+  document.getElementById('rsvpProgress').style.width = ((idx + 1) / rsvp.tokens.length * 100) + '%';
+  document.getElementById('rsvpCounter').textContent = (idx + 1) + ' / ' + rsvp.tokens.length;
+}
+
+function rsvpPlay() {
+  if (rsvp.current >= rsvp.tokens.length) { rsvp.current = 0; rsvp.pausedElapsed = 0; }
+  rsvp.isPlaying = true;
+  rsvp.playStartTime = Date.now();
+  document.getElementById('rsvpIdle').classList.add('hidden');
+  document.getElementById('rsvpStage').classList.remove('hidden');
+  document.getElementById('rsvpPlayBtn').textContent = 'pause';
+  rsvpTick();
+}
+
+function rsvpTick() {
+  rsvpDisplay(rsvp.current);
+  const elapsed = rsvpElapsed();
+  const wpm = rsvpWpm(elapsed);
+  document.getElementById('rsvpSpeed').textContent = wpm < rsvp.targetWpm ? wpm + ' wpm' : '';
+  rsvp.current++;
+
+  if (rsvp.current >= rsvp.tokens.length) {
+    rsvpPause();
+    document.getElementById('rsvpPlayBtn').textContent = 'done ✓';
+    document.getElementById('rsvpSpeed').textContent = '';
+    rsvp.done = true;
+    // Auto-advance after brief pause
+    setTimeout(() => goPhase(5), 1200);
+    return;
+  }
+
+  const prev = rsvp.tokens[rsvp.current - 1];
+  const base = 60000 / wpm;
+  const mult = prev.para ? 4.0 : prev.sent ? 2.5 : 1;
+  rsvp.timer = setTimeout(rsvpTick, base * mult);
+}
+
+function rsvpPause() {
+  rsvp.pausedElapsed = rsvpElapsed();
+  rsvp.playStartTime = null;
+  rsvp.isPlaying = false;
+  clearTimeout(rsvp.timer);
+  document.getElementById('rsvpPlayBtn').textContent = 'play';
+  document.getElementById('rsvpSpeed').textContent = '';
+}
+
+function rsvpToggle() {
+  if (rsvp.done) return;
+  if (rsvp.isPlaying) rsvpPause(); else rsvpPlay();
+}
+
+function rsvpPrevSentence() {
+  rsvpPause();
+  let si = 0;
+  for (let i = 0; i < rsvp.sentences.length; i++) {
+    if (rsvp.current > rsvp.sentences[i].start) si = i;
+  }
+  rsvp.current = rsvp.sentences[Math.max(0, si - 1)].start;
+  rsvp.pausedElapsed = 0;
+  rsvpDisplay(rsvp.current);
+}
+
+function rsvpRestart() {
+  rsvpPause();
+  rsvp.current = 0;
+  rsvp.pausedElapsed = 0;
+  rsvpDisplay(0);
+  document.getElementById('rsvpPlayBtn').textContent = 'play';
+}
+
+// ── RESULTS ───────────────────────────────────────────────────────────────────
+
+function showResults() {
+  const wpmA = study.naturalWpm;
+  const wpmB = study.rsvpWpm;
+  const sA = study.scoreA;
+  const sB = study.scoreB;
+  const diffLabel = DIFFICULTY[study.difficulty].label;
+
+  document.getElementById('r-wpm-a').textContent = wpmA;
+  document.getElementById('r-wpm-b').textContent = wpmB;
+  document.getElementById('r-score-a').textContent = sA + '/5';
+  document.getElementById('r-score-b').textContent = sB + '/5';
+
+  // Update RSVP column label to show difficulty
+  document.querySelector('#phase6 .results-grid .results-col:last-child .results-col-label').textContent =
+    'RSVP Reading — ' + diffLabel;
+
+  const wpmDelta = wpmB - wpmA;
+  const scoreDelta = sB - sA;
+  const deltaEl = document.getElementById('resultsDelta');
+
+  const wpmDir = wpmDelta >= 0 ? '+' : '';
+  const scoreDir = scoreDelta >= 0 ? '+' : '';
+  const scoreClass = scoreDelta > 0 ? 'positive' : scoreDelta < 0 ? 'negative' : 'neutral';
+  const wpmClass = wpmDelta > 0 ? 'positive' : wpmDelta < 0 ? 'negative' : 'neutral';
+
+  deltaEl.innerHTML = `
+    <div class="results-delta-label">Speed change with RSVP (${diffLabel})</div>
+    <div class="results-delta-val ${wpmClass}">${wpmDir}${wpmDelta} wpm</div>
+    <div class="results-delta-label" style="margin-top:0.75rem">Comprehension change with RSVP</div>
+    <div class="results-delta-val ${scoreClass}">${scoreDir}${scoreDelta} points out of 5</div>
+  `;
+
+  const shareText = `FOCAL READER — READING STUDY RESULTS
+─────────────────────────────────────
+Standard reading:  ${wpmA} wpm  |  ${sA}/5 comprehension
+RSVP (${diffLabel.padEnd(8)}):  ${wpmB} wpm  |  ${sB}/5 comprehension
+─────────────────────────────────────
+Speed delta:       ${wpmDir}${wpmDelta} wpm
+Comprehension:     ${scoreDir}${scoreDelta} points
+─────────────────────────────────────
+talmaru.github.io/Focal-Reader/test.html`;
+
+  document.getElementById('shareBox').textContent = shareText;
+}
+
+// Keyboard shortcut for RSVP phase
+document.addEventListener('keydown', e => {
+  if (study.currentPhase === 4 && e.code === 'Space') {
+    e.preventDefault();
+    rsvpToggle();
+  }
+});
+</script>
+</body>
+</html>
