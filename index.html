@@ -191,6 +191,39 @@
         <span class="opt-val"><span id="paraMultDisplay">4.0</span>×</span>
       </div>
 
+      <span class="opt-section-label">Punctuation Pauses</span>
+
+      <div class="opt-row">
+        <span class="opt-label">Comma ,</span>
+        <input type="range" id="commaMultSlider" min="1.0" max="3.0" step="0.1" value="1.4">
+        <span class="opt-val"><span id="commaMultDisplay">1.4</span>×</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">Semicolon ;</span>
+        <input type="range" id="semiMultSlider" min="1.0" max="3.0" step="0.1" value="1.6">
+        <span class="opt-val"><span id="semiMultDisplay">1.6</span>×</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">Colon :</span>
+        <input type="range" id="colonMultSlider" min="1.0" max="3.0" step="0.1" value="1.5">
+        <span class="opt-val"><span id="colonMultDisplay">1.5</span>×</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">Dash — –</span>
+        <input type="range" id="dashMultSlider" min="1.0" max="3.0" step="0.1" value="1.5">
+        <span class="opt-val"><span id="dashMultDisplay">1.5</span>×</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">Ellipsis …</span>
+        <input type="range" id="ellipMultSlider" min="1.0" max="4.0" step="0.1" value="1.8">
+        <span class="opt-val"><span id="ellipMultDisplay">1.8</span>×</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">Slash / \</span>
+        <input type="range" id="slashMultSlider" min="1.0" max="3.0" step="0.1" value="1.2">
+        <span class="opt-val"><span id="slashMultDisplay">1.2</span>×</span>
+      </div>
+
       <span class="opt-section-label">Ramp / Acceleration</span>
 
       <div class="opt-row">
@@ -247,8 +280,14 @@ const state = {
   rampEnabled: true,
   rampStart: 150,
   rampDuration: 10,
-  sentMult: 2.5,
-  paraMult: 4.0,
+  sentMult:   2.5,
+  paraMult:   4.0,
+  commaMult:  1.4,
+  semiMult:   1.6,
+  colonMult:  1.5,
+  dashMult:   1.5,
+  ellipMult:  1.8,
+  slashMult:  1.2,
   compoundMode: 0,   // 0=original, 1=focus hyphen, 2=split
   fontFace: "'Courier Prime', monospace",
   playStartTime: null,
@@ -261,21 +300,43 @@ const state = {
 
 // ── PARSER ──────────────────────────────────────────────────────────────────
 
+// Characters that split a token into two display units
+const SPLIT_CHARS = ['-', '\u2014', '\u2013', '/', '\\'];
+
+// Detect pauseType for a token based on its trailing character(s)
+function getPauseType(word) {
+  if (/[.!?][\u201d\u2019"']?$/.test(word)) return 'sentence';
+  if (/[,]$/.test(word))                    return 'comma';
+  if (/[;]$/.test(word))                    return 'semi';
+  if (/[:]$/.test(word))                    return 'colon';
+  if (/[\u2026]$/.test(word))               return 'ellipsis';  // … character
+  if (/\.{3}$/.test(word))                  return 'ellipsis';  // literal ...
+  if (/[\u2014\u2013]$/.test(word))         return 'dash';      // trailing em/en dash
+  if (/[/\\]$/.test(word))                  return 'slash';
+  return 'none';
+}
+
+// Split a word on the first occurrence of any SPLIT_CHAR, returning [part1, part2]
+// part1 retains the split character; part2 is the remainder
+function splitOnChar(word) {
+  for (let i = 1; i < word.length - 1; i++) {
+    if (SPLIT_CHARS.includes(word[i])) {
+      return [word.slice(0, i + 1), word.slice(i + 1)];
+    }
+  }
+  return null;
+}
+
 function parseText(raw, compoundMode) {
   const tokens = [];
   const lines = raw.split('\n');
   let paragraphIdx = 0;
 
   for (let li = 0; li < lines.length; li++) {
-    const line = lines[li];
-    const trimmed = line.trim();
+    const trimmed = lines[li].trim();
 
     if (trimmed === '') {
-      // Empty line = paragraph break — tag last token
-      if (tokens.length > 0) {
-        const last = tokens[tokens.length - 1];
-        if (last.pauseType !== 'paragraph') last.pauseType = 'paragraph';
-      }
+      if (tokens.length > 0) tokens[tokens.length - 1].pauseType = 'paragraph';
       paragraphIdx++;
       continue;
     }
@@ -284,27 +345,24 @@ function parseText(raw, compoundMode) {
 
     for (let wi = 0; wi < words.length; wi++) {
       const word = words[wi];
-      const isLast = li === lines.length - 1 && wi === words.length - 1;
 
-      // Detect compound words
-      const hyphenIdx = word.indexOf('-');
-      const isCompound = hyphenIdx > 0 && hyphenIdx < word.length - 1;
+      // Check for internal split character (em dash, en dash, slash, backslash, hyphen)
+      const split = splitOnChar(word);
+      const isHyphen = word[split ? word.indexOf(split[0][split[0].length-1]) : -1] === '-';
 
-      if (isCompound && compoundMode === 2) {
-        // Split mode: "well-known" → "well-" + "known"
-        const part1 = word.slice(0, hyphenIdx + 1);
-        const part2 = word.slice(hyphenIdx + 1);
-        tokens.push({ word: part1, pauseType: 'none', paragraphIdx });
-        const sentEnd = /[.!?]["']?$/.test(part2);
-        tokens.push({ word: part2, pauseType: sentEnd ? 'sentence' : 'none', paragraphIdx });
+      if (split && compoundMode === 2) {
+        // Split mode — two tokens
+        tokens.push({ word: split[0], pauseType: getPauseType(split[0]), paragraphIdx });
+        tokens.push({ word: split[1], pauseType: getPauseType(split[1]), paragraphIdx });
+      } else if (split && compoundMode === 1 && isHyphen) {
+        // Focus hyphen mode — single token, ORP on hyphen (handled in ORP function)
+        tokens.push({ word, pauseType: getPauseType(word), paragraphIdx });
       } else {
-        const sentEnd = /[.!?]["']?$/.test(word);
-        tokens.push({ word, pauseType: sentEnd ? 'sentence' : 'none', paragraphIdx });
+        tokens.push({ word, pauseType: getPauseType(word), paragraphIdx });
       }
     }
   }
 
-  // Ensure last token has no trailing pause type wrongly set
   return tokens;
 }
 
@@ -498,10 +556,18 @@ function tick() {
 
   const prevTok = state.tokens[state.currentWord - 1];
   const baseDelay = 60000 / wpm;
-  let mult = 1;
-  if (prevTok.pauseType === 'sentence') mult = state.sentMult;
-  if (prevTok.pauseType === 'paragraph') mult = state.paraMult;
-
+  const multMap = {
+    sentence:  state.sentMult,
+    paragraph: state.paraMult,
+    comma:     state.commaMult,
+    semi:      state.semiMult,
+    colon:     state.colonMult,
+    ellipsis:  state.ellipMult,
+    dash:      state.dashMult,
+    slash:     state.slashMult,
+    none:      1
+  };
+  const mult = multMap[prevTok.pauseType] ?? 1;
   state.timer = setTimeout(tick, baseDelay * mult);
 }
 
@@ -617,6 +683,36 @@ document.getElementById('paraMultSlider').addEventListener('input', function () 
   document.getElementById('paraMultDisplay').textContent = state.paraMult.toFixed(1);
 });
 
+document.getElementById('commaMultSlider').addEventListener('input', function () {
+  state.commaMult = parseFloat(this.value);
+  document.getElementById('commaMultDisplay').textContent = state.commaMult.toFixed(1);
+});
+
+document.getElementById('semiMultSlider').addEventListener('input', function () {
+  state.semiMult = parseFloat(this.value);
+  document.getElementById('semiMultDisplay').textContent = state.semiMult.toFixed(1);
+});
+
+document.getElementById('colonMultSlider').addEventListener('input', function () {
+  state.colonMult = parseFloat(this.value);
+  document.getElementById('colonMultDisplay').textContent = state.colonMult.toFixed(1);
+});
+
+document.getElementById('dashMultSlider').addEventListener('input', function () {
+  state.dashMult = parseFloat(this.value);
+  document.getElementById('dashMultDisplay').textContent = state.dashMult.toFixed(1);
+});
+
+document.getElementById('ellipMultSlider').addEventListener('input', function () {
+  state.ellipMult = parseFloat(this.value);
+  document.getElementById('ellipMultDisplay').textContent = state.ellipMult.toFixed(1);
+});
+
+document.getElementById('slashMultSlider').addEventListener('input', function () {
+  state.slashMult = parseFloat(this.value);
+  document.getElementById('slashMultDisplay').textContent = state.slashMult.toFixed(1);
+});
+
 document.getElementById('rampStartSlider').addEventListener('input', function () {
   state.rampStart = parseInt(this.value);
   document.getElementById('rampStartDisplay').textContent = state.rampStart;
@@ -673,6 +769,12 @@ function saveSettings() {
       fontFace:     state.fontFace,
       sentMult:     state.sentMult,
       paraMult:     state.paraMult,
+      commaMult:    state.commaMult,
+      semiMult:     state.semiMult,
+      colonMult:    state.colonMult,
+      dashMult:     state.dashMult,
+      ellipMult:    state.ellipMult,
+      slashMult:    state.slashMult,
       rampEnabled:  state.rampEnabled,
       rampStart:    state.rampStart,
       rampDuration: state.rampDuration,
@@ -687,13 +789,19 @@ function loadSettings() {
     if (!raw) return;
     const s = JSON.parse(raw);
 
-    if (s.targetWpm)    { state.targetWpm = s.targetWpm;       document.getElementById('wpmSlider').value = s.targetWpm;       document.getElementById('wpmDisplay').textContent = s.targetWpm; }
-    if (s.fontSize)     { state.fontSize = s.fontSize;          document.getElementById('fontSlider').value = s.fontSize;       document.getElementById('fontDisplay').textContent = s.fontSize;  document.getElementById('wordStage').style.fontSize = s.fontSize + 'px'; }
-    if (s.fontFace)     { state.fontFace = s.fontFace;          document.getElementById('fontSelect').value = s.fontFace;       document.getElementById('wordStage').style.fontFamily = s.fontFace; }
-    if (s.sentMult)     { state.sentMult = s.sentMult;          document.getElementById('sentMultSlider').value = s.sentMult;   document.getElementById('sentMultDisplay').textContent = parseFloat(s.sentMult).toFixed(1); }
-    if (s.paraMult)     { state.paraMult = s.paraMult;          document.getElementById('paraMultSlider').value = s.paraMult;   document.getElementById('paraMultDisplay').textContent = parseFloat(s.paraMult).toFixed(1); }
-    if (s.rampStart)    { state.rampStart = s.rampStart;        document.getElementById('rampStartSlider').value = s.rampStart; document.getElementById('rampStartDisplay').textContent = s.rampStart; }
-    if (s.rampDuration) { state.rampDuration = s.rampDuration;  document.getElementById('rampDurSlider').value = s.rampDuration; document.getElementById('rampDurDisplay').textContent = s.rampDuration; }
+    if (s.targetWpm)    { state.targetWpm = s.targetWpm;       document.getElementById('wpmSlider').value = s.targetWpm;           document.getElementById('wpmDisplay').textContent = s.targetWpm; }
+    if (s.fontSize)     { state.fontSize = s.fontSize;          document.getElementById('fontSlider').value = s.fontSize;           document.getElementById('fontDisplay').textContent = s.fontSize; document.getElementById('wordStage').style.fontSize = s.fontSize + 'px'; }
+    if (s.fontFace)     { state.fontFace = s.fontFace;          document.getElementById('fontSelect').value = s.fontFace;           document.getElementById('wordStage').style.fontFamily = s.fontFace; }
+    if (s.sentMult)     { state.sentMult = s.sentMult;          document.getElementById('sentMultSlider').value = s.sentMult;       document.getElementById('sentMultDisplay').textContent = parseFloat(s.sentMult).toFixed(1); }
+    if (s.paraMult)     { state.paraMult = s.paraMult;          document.getElementById('paraMultSlider').value = s.paraMult;       document.getElementById('paraMultDisplay').textContent = parseFloat(s.paraMult).toFixed(1); }
+    if (s.commaMult)    { state.commaMult = s.commaMult;        document.getElementById('commaMultSlider').value = s.commaMult;     document.getElementById('commaMultDisplay').textContent = parseFloat(s.commaMult).toFixed(1); }
+    if (s.semiMult)     { state.semiMult = s.semiMult;          document.getElementById('semiMultSlider').value = s.semiMult;       document.getElementById('semiMultDisplay').textContent = parseFloat(s.semiMult).toFixed(1); }
+    if (s.colonMult)    { state.colonMult = s.colonMult;        document.getElementById('colonMultSlider').value = s.colonMult;     document.getElementById('colonMultDisplay').textContent = parseFloat(s.colonMult).toFixed(1); }
+    if (s.dashMult)     { state.dashMult = s.dashMult;          document.getElementById('dashMultSlider').value = s.dashMult;       document.getElementById('dashMultDisplay').textContent = parseFloat(s.dashMult).toFixed(1); }
+    if (s.ellipMult)    { state.ellipMult = s.ellipMult;        document.getElementById('ellipMultSlider').value = s.ellipMult;     document.getElementById('ellipMultDisplay').textContent = parseFloat(s.ellipMult).toFixed(1); }
+    if (s.slashMult)    { state.slashMult = s.slashMult;        document.getElementById('slashMultSlider').value = s.slashMult;     document.getElementById('slashMultDisplay').textContent = parseFloat(s.slashMult).toFixed(1); }
+    if (s.rampStart)    { state.rampStart = s.rampStart;        document.getElementById('rampStartSlider').value = s.rampStart;     document.getElementById('rampStartDisplay').textContent = s.rampStart; }
+    if (s.rampDuration) { state.rampDuration = s.rampDuration;  document.getElementById('rampDurSlider').value = s.rampDuration;   document.getElementById('rampDurDisplay').textContent = s.rampDuration; }
     if (s.compoundMode !== undefined) {
       state.compoundMode = s.compoundMode;
       document.querySelectorAll('#compoundToggle .toggle-btn').forEach(b => {
@@ -704,7 +812,7 @@ function loadSettings() {
 }
 
 // Attach save to all setting inputs
-['wpmSlider','fontSlider','sentMultSlider','paraMultSlider','rampStartSlider','rampDurSlider'].forEach(id => {
+['wpmSlider','fontSlider','sentMultSlider','paraMultSlider','commaMultSlider','semiMultSlider','colonMultSlider','dashMultSlider','ellipMultSlider','slashMultSlider','rampStartSlider','rampDurSlider'].forEach(id => {
   document.getElementById(id).addEventListener('input', saveSettings);
 });
 document.getElementById('compoundToggle').addEventListener('click', saveSettings);
