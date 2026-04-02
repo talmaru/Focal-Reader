@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Focal Reader — Math Drill</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Oswald:wght@200;300;400;500&display=swap');
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  :root {
+    --bg:#0e0e0e; --surface:#1a1a1a; --border:#333;
+    --text:#e8e3dc; --muted:#7a7570; --accent:#c8402a;
+    --accent2:#f0a870; --focus:#f5f0e8; --green:#4a9a6a;
+  }
+
+  body { background:var(--bg); color:var(--text); font-family:'Courier Prime',monospace; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:2rem 1rem 4rem; }
+  .app { width:100%; max-width:680px; display:flex; flex-direction:column; gap:1.5rem; }
+
+  /* HEADER */
+  .header { text-align:center; padding-bottom:0.75rem; border-bottom:1px solid var(--border); }
+  .header h1 { font-family:'Oswald',sans-serif; font-weight:200; font-size:1.1rem; letter-spacing:0.4em; text-transform:uppercase; color:#9a9590; }
+  .header h1 span { color:var(--accent); }
+  .header p { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.2em; color:var(--muted); text-transform:uppercase; margin-top:0.3rem; }
+
+  /* DISPLAY BOX */
+  .display-area {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:2px; height:180px; position:relative; overflow:visible;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .display-area::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:0.5; pointer-events:none; }
+  .display-bg { position:absolute; inset:0; background:var(--surface); border-radius:2px; z-index:0; }
+
+  .equation-display {
+    position:relative; z-index:2;
+    display:flex; align-items:baseline; gap:0.15em;
+    font-family:'Courier Prime',monospace; font-size:52px;
+    user-select:none; animation:fadeIn 0.08s ease-out;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
+
+  .eq-num { color:var(--text); }
+  .eq-op  { color:var(--accent); font-weight:700; }
+  .eq-eq  { color:var(--muted); }
+  .eq-ans { color:var(--accent2); }
+  .eq-blank {
+    color:var(--accent); font-weight:700;
+    border-bottom:2px solid var(--accent);
+    min-width:1.2em; display:inline-block; text-align:center;
+  }
+
+  .idle-text {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-family:'Oswald',sans-serif; font-weight:200; font-size:0.85rem;
+    letter-spacing:0.2em; color:var(--muted); text-transform:uppercase;
+    white-space:nowrap; z-index:2;
+  }
+
+  /* dwell progress bar */
+  .dwell-bar-wrap { position:absolute; bottom:0; left:0; right:0; height:2px; background:var(--border); z-index:3; }
+  .dwell-bar { height:100%; background:var(--accent); width:100%; transition:width linear; }
+
+  /* set progress dots */
+  .set-dots { display:flex; gap:0.4rem; justify-content:center; }
+  .set-dot { width:8px; height:8px; border-radius:50%; background:var(--border); transition:background 0.2s; flex-shrink:0; }
+  .set-dot.active   { background:var(--accent2); }
+  .set-dot.correct  { background:var(--green); }
+  .set-dot.wrong    { background:var(--accent); }
+  .set-dot.done     { background:var(--muted); }
+
+  /* RECALL INPUT */
+  .recall-wrap {
+    display:flex; flex-direction:column; align-items:center; gap:0.75rem;
+  }
+  .recall-hint {
+    font-family:'Oswald',sans-serif; font-weight:200; font-size:0.7rem;
+    letter-spacing:0.2em; color:var(--muted); text-transform:uppercase;
+  }
+  .recall-input {
+    background:transparent; border:none; border-bottom:2px solid var(--accent);
+    color:var(--accent2); font-family:'Courier Prime',monospace; font-size:3rem;
+    text-align:center; width:6rem; outline:none; caret-color:var(--accent);
+    padding:0 0.25rem 0.1rem;
+  }
+  .recall-input::placeholder { color:var(--border); }
+
+  /* feedback flash */
+  .feedback {
+    font-family:'Oswald',sans-serif; font-weight:300; font-size:0.8rem;
+    letter-spacing:0.2em; text-transform:uppercase; min-height:1.2em;
+    text-align:center; transition:opacity 0.2s;
+  }
+  .feedback.correct { color:var(--green); }
+  .feedback.wrong   { color:var(--accent); }
+
+  /* PHASE LABEL */
+  .phase-label {
+    font-family:'Oswald',sans-serif; font-weight:200; font-size:0.7rem;
+    letter-spacing:0.25em; color:var(--muted); text-transform:uppercase;
+    text-align:center;
+  }
+  .phase-label span { color:var(--accent2); }
+
+  /* RESULTS */
+  .results-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:2px; overflow:hidden; }
+  .results-cell { background:var(--surface); padding:1.2rem 1rem; display:flex; flex-direction:column; gap:0.3rem; }
+  .results-val { font-family:'Oswald',sans-serif; font-weight:400; font-size:1.8rem; color:var(--focus); line-height:1; }
+  .results-lbl { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.6rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted); }
+  .results-val.green { color:var(--green); }
+  .results-val.red   { color:var(--accent); }
+
+  .missed-list { display:flex; flex-direction:column; gap:0.4rem; }
+  .missed-item { display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.75rem; background:var(--bg); border:1px solid var(--border); border-radius:1px; font-size:0.9rem; }
+  .missed-item .mi-eq { color:var(--muted); }
+  .missed-item .mi-ans { color:var(--accent); }
+  .missed-item .mi-correct { color:var(--green); margin-left:0.5rem; }
+
+  /* SETTINGS */
+  .settings-box { background:var(--surface); border:1px solid var(--border); border-radius:2px; overflow:hidden; }
+  .settings-header { display:flex; align-items:center; justify-content:space-between; padding:0.65rem 1rem; cursor:pointer; user-select:none; border-bottom:1px solid var(--border); }
+  .settings-title { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.3em; text-transform:uppercase; color:var(--muted); }
+  .settings-body { display:flex; flex-direction:column; }
+  .settings-body.hidden { display:none; }
+
+  .opt-row { display:flex; align-items:center; gap:0.75rem; padding:0.65rem 1rem; border-bottom:1px solid var(--border); }
+  .opt-row:last-child { border-bottom:none; }
+  .opt-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.7rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted); min-width:110px; }
+  .opt-val { font-family:'Oswald',sans-serif; font-weight:400; font-size:0.95rem; color:var(--accent2); min-width:50px; text-align:right; white-space:nowrap; }
+  .opt-section-label { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.65rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--accent); padding:0.55rem 1rem 0; border-top:1px solid var(--border); display:block; }
+
+  input[type=range] { flex:1; -webkit-appearance:none; height:2px; background:var(--border); outline:none; min-width:80px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:13px; height:13px; background:var(--accent); border-radius:0; cursor:pointer; }
+
+  /* toggle group */
+  .toggle-group { display:flex; gap:0.4rem; flex:1; }
+  .toggle-btn { flex:1; background:none; border:1px solid var(--border); color:var(--muted); font-family:'Oswald',sans-serif; font-weight:300; font-size:0.65rem; letter-spacing:0.1em; text-transform:uppercase; padding:0.35rem 0.4rem; cursor:pointer; border-radius:1px; transition:all 0.15s; text-align:center; }
+  .toggle-btn:hover { border-color:var(--muted); color:var(--text); }
+  .toggle-btn.active { border-color:var(--accent); color:var(--accent); }
+
+  /* table selector grid */
+  .table-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:0.35rem; flex:1; }
+  .table-btn { background:none; border:1px solid var(--border); color:var(--muted); font-family:'Oswald',sans-serif; font-weight:300; font-size:0.75rem; padding:0.3rem 0; cursor:pointer; border-radius:1px; transition:all 0.15s; text-align:center; }
+  .table-btn:hover { border-color:var(--muted); color:var(--text); }
+  .table-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(200,64,42,0.08); }
+
+  /* BUTTONS */
+  .btn { background:none; border:1px solid var(--border); color:var(--text); font-family:'Courier Prime',monospace; font-size:0.82rem; padding:0.55rem 1.2rem; cursor:pointer; letter-spacing:0.08em; transition:all 0.15s; border-radius:1px; }
+  .btn:hover { border-color:var(--muted); color:var(--focus); }
+  .btn.primary { border-color:var(--accent); color:var(--accent); }
+  .btn.primary:hover { background:var(--accent); color:var(--bg); }
+  .btn.full { width:100%; text-align:center; padding:0.7rem; }
+  .btn:disabled { opacity:0.3; cursor:not-allowed; }
+  .btn-row { display:flex; gap:0.75rem; justify-content:center; }
+
+  .nav-link { font-family:'Oswald',sans-serif; font-weight:300; font-size:0.75rem; letter-spacing:0.25em; text-transform:uppercase; color:#c8b8a8; text-decoration:none; transition:color 0.15s; }
+  .nav-link:hover { color:var(--accent); }
+
+  .hidden { display:none !important; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:2px; padding:1.5rem; display:flex; flex-direction:column; gap:1rem; animation:cardIn 0.25s ease-out; }
+  @keyframes cardIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  .card-title { font-family:'Oswald',sans-serif; font-weight:300; font-size:1.3rem; letter-spacing:0.08em; color:var(--focus); }
+  .card-sub { font-family:'Oswald',sans-serif; font-weight:200; font-size:0.65rem; letter-spacing:0.3em; text-transform:uppercase; color:var(--accent); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <h1>FOCAL<span>—</span>DRILL</h1>
+    <p>Math Fact Training — Exposure &amp; Recall</p>
+  </div>
+
+  <!-- MODE SELECTOR -->
+  <div style="display:flex;gap:0.5rem;">
+    <button class="toggle-btn active" id="modeDrill" onclick="setMode('drill')" style="flex:1;padding:0.6rem;font-size:0.7rem;">
+      ⚄ Drill Mode<br><span style="font-size:0.58rem;color:var(--muted);letter-spacing:0.05em;">random sample, mixed tables</span>
+    </button>
+    <button class="toggle-btn" id="modeFlash" onclick="setMode('flash')" style="flex:1;padding:0.6rem;font-size:0.7rem;">
+      ◻ Flashcard Mode<br><span style="font-size:0.58rem;color:var(--muted);letter-spacing:0.05em;">complete table, single operation</span>
+    </button>
+  </div>
+
+  <!-- DISPLAY -->
+  <div class="display-area" id="displayArea">
+    <div class="display-bg"></div>
+    <div class="idle-text" id="idleText">configure below and press start</div>
+    <div class="equation-display hidden" id="eqDisplay">
+      <span class="eq-num" id="eqA"></span>
+      <span class="eq-op" id="eqOp"></span>
+      <span class="eq-num" id="eqB"></span>
+      <span class="eq-eq">=</span>
+      <span class="eq-ans" id="eqAns"></span>
+    </div>
+    <div class="dwell-bar-wrap"><div class="dwell-bar" id="dwellBar"></div></div>
+  </div>
+
+  <!-- SET PROGRESS DOTS -->
+  <div class="set-dots" id="setDots"></div>
+
+  <!-- PHASE LABEL -->
+  <div class="phase-label" id="phaseLabel">&nbsp;</div>
+
+  <!-- RECALL INPUT (hidden until recall phase) -->
+  <div class="recall-wrap hidden" id="recallWrap">
+    <div class="recall-hint">type your answer — auto-submits on completion</div>
+    <input type="text" id="recallInput" class="recall-input" inputmode="numeric" pattern="[0-9]*" placeholder="?" autocomplete="off" autocorrect="off" spellcheck="false">
+    <div class="feedback" id="feedback">&nbsp;</div>
+  </div>
+
+  <!-- BUTTONS -->
+  <div class="btn-row" id="mainBtns">
+    <button class="btn primary full" id="startBtn" onclick="startSession()">start drill →</button>
+    <button class="btn full hidden" id="stopBtn" onclick="stopSession()" style="border-color:var(--muted);color:var(--muted);">✕ stop</button>
+  </div>
+
+  <!-- RESULTS (hidden until complete) -->
+  <div class="card hidden" id="resultsCard">
+    <div>
+      <div class="card-sub">Results</div>
+      <div class="card-title" id="resultsTitle">Set Complete</div>
+    </div>
+    <div class="results-grid">
+      <div class="results-cell">
+        <div class="results-val" id="r-correct">—</div>
+        <div class="results-lbl">correct</div>
+      </div>
+      <div class="results-cell">
+        <div class="results-val" id="r-accuracy">—</div>
+        <div class="results-lbl">accuracy</div>
+      </div>
+      <div class="results-cell">
+        <div class="results-val" id="r-avgtime">—</div>
+        <div class="results-lbl">avg response</div>
+      </div>
+    </div>
+    <div class="hidden" id="missedSection">
+      <div style="font-family:'Oswald',sans-serif;font-weight:300;font-size:0.65rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--accent);margin-bottom:0.5rem;">Missed</div>
+      <div class="missed-list" id="missedList"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="resetDrill()">↺ same settings</button>
+      <button class="btn primary" onclick="showConfig()">⚙ reconfigure</button>
+    </div>
+  </div>
+
+  <!-- DRILL SETTINGS -->
+  <div class="settings-box" id="settingsBox">
+    <div class="settings-header" onclick="toggleSettings()">
+      <span class="settings-title">Drill Settings</span>
+      <span id="settingsChevron">▲</span>
+    </div>
+    <div class="settings-body" id="settingsBody">
+
+      <span class="opt-section-label">Tables</span>
+      <div class="opt-row" style="flex-wrap:wrap;gap:0.5rem;">
+        <span class="opt-label">Include</span>
+        <div class="table-grid" id="tableGrid"></div>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label" style="flex-shrink:0;">Quick select</span>
+        <div class="toggle-group">
+          <button class="toggle-btn" onclick="selectTables('all')">All</button>
+          <button class="toggle-btn" onclick="selectTables('hard')">Hard (6-9)</button>
+          <button class="toggle-btn" onclick="selectTables('none')">None</button>
+        </div>
+      </div>
+
+      <span class="opt-section-label">Operation</span>
+      <div class="opt-row">
+        <span class="opt-label">Operator</span>
+        <div class="toggle-group" id="opToggle">
+          <button class="toggle-btn active" data-op="×">× Multiply</button>
+          <button class="toggle-btn" data-op="÷">÷ Divide</button>
+          <button class="toggle-btn" data-op="both">Both</button>
+        </div>
+      </div>
+
+      <span class="opt-section-label">Timing</span>
+      <div class="opt-row">
+        <span class="opt-label">Set Size</span>
+        <input type="range" id="setSizeSlider" min="3" max="12" step="1" value="6">
+        <span class="opt-val"><span id="setSizeDisplay">6</span> equations</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">Dwell Time</span>
+        <input type="range" id="dwellSlider" min="0.5" max="4.0" step="0.1" value="1.5">
+        <span class="opt-val"><span id="dwellDisplay">1.5</span> sec</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FLASHCARD SETTINGS -->
+  <div class="settings-box hidden" id="flashSettingsBox">
+    <div class="settings-header" onclick="toggleFlashSettings()">
+      <span class="settings-title">Flashcard Settings</span>
+      <span id="flashSettingsChevron">▲</span>
+    </div>
+    <div class="settings-body" id="flashSettingsBody">
+
+      <span class="opt-section-label">Operation</span>
+      <div class="opt-row">
+        <span class="opt-label">Operator</span>
+        <div class="toggle-group" id="flashOpToggle">
+          <button class="toggle-btn active" data-op="+">+ Add</button>
+          <button class="toggle-btn" data-op="−">− Subtract</button>
+          <button class="toggle-btn" data-op="×">× Multiply</button>
+          <button class="toggle-btn" data-op="÷">÷ Divide</button>
+        </div>
+      </div>
+
+      <span class="opt-section-label">Table Number</span>
+      <div class="opt-row" style="flex-wrap:wrap;gap:0.5rem;">
+        <span class="opt-label">Number</span>
+        <div class="table-grid" id="flashTableGrid"></div>
+      </div>
+
+      <span class="opt-section-label">Order &amp; Timing</span>
+      <div class="opt-row">
+        <span class="opt-label">Order</span>
+        <div class="toggle-group" id="flashOrderToggle">
+          <button class="toggle-btn active" data-order="asc">1 → 12</button>
+          <button class="toggle-btn" data-order="shuffle">Shuffle</button>
+        </div>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">Dwell Time</span>
+        <input type="range" id="flashDwellSlider" min="0.5" max="4.0" step="0.1" value="1.5">
+        <span class="opt-val"><span id="flashDwellDisplay">1.5</span> sec</span>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="text-align:center;padding-top:0.5rem;border-top:1px solid var(--border);">
+    <a href="index.html" class="nav-link">← reader</a>
+  </div>
+
+</div>
+<script>
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+
+const cfg = {
+  tables:   [1,2,3,4,5,6,7,8,9,10,11,12].reduce((o,n) => ({...o,[n]:true}), {}),
+  operator: '×',
+  setSize:  6,
+  dwell:    1.5
+};
+
+const flashCfg = {
+  operator: '+',
+  table:    7,
+  order:    'asc',
+  dwell:    1.5
+};
+
+const drill = {
+  mode:       'drill',  // 'drill' | 'flash'
+  phase:      'idle',   // idle | exposure | recall | results
+  equations:  [],
+  current:    0,
+  results:    [],
+  recallStart: null,
+  dwellTimer:  null,
+  settingsOpen: true,
+  flashSettingsOpen: true
+};
+
+// ── MODE SWITCHING ────────────────────────────────────────────────────────────
+
+function setRunning(running) {
+  document.getElementById('startBtn').classList.toggle('hidden', running);
+  document.getElementById('stopBtn').classList.toggle('hidden', !running);
+}
+
+function stopSession() {
+  clearDwell();
+  clearTimeout(drill.dwellTimer);
+  drill.phase = 'idle';
+  setRunning(false);
+  document.getElementById('recallWrap').classList.add('hidden');
+  document.getElementById('eqDisplay').classList.add('hidden');
+  document.getElementById('idleText').textContent = 'configure below and press start';
+  document.getElementById('idleText').classList.remove('hidden');
+  document.getElementById('setDots').innerHTML = '';
+  setPhaseLabel('');
+}
+
+function sessionTitle(correct, total, avgMs) {
+  const acc = correct / total;
+  const avgSec = avgMs / 1000;
+  if (correct === total && avgSec < 2.0) return 'Automatic — pattern recognition';
+  if (correct === total && avgSec < 3.5) return 'Accurate — drill for speed';
+  if (correct === total)                  return 'Perfect — keep building pace';
+  if (acc >= 0.8)                         return 'Drilling — gaps are closing';
+  return 'Keep working — focus on the misses';
+}
+
+function setMode(mode) {
+  drill.mode = mode;
+  document.getElementById('modeDrill').classList.toggle('active', mode === 'drill');
+  document.getElementById('modeFlash').classList.toggle('active', mode === 'flash');
+  document.getElementById('settingsBox').classList.toggle('hidden', mode === 'flash');
+  document.getElementById('flashSettingsBox').classList.toggle('hidden', mode === 'drill');
+  document.getElementById('startBtn').textContent = mode === 'drill' ? 'start drill →' : 'start flashcard →';
+  resetSession();
+}
+
+// ── EQUATION GENERATION ───────────────────────────────────────────────────────
+
+function generateDrillEquations() {
+  const activeTables = Object.keys(cfg.tables).filter(k => cfg.tables[k]).map(Number);
+  if (!activeTables.length) return [];
+  const pool = [];
+  activeTables.forEach(t => {
+    for (let i = 1; i <= 12; i++) {
+      if (cfg.operator === '×' || cfg.operator === 'both') pool.push({ a:t, op:'×', b:i, answer:t*i });
+      if (cfg.operator === '÷' || cfg.operator === 'both') pool.push({ a:t*i, op:'÷', b:t, answer:i });
+    }
+  });
+  for (let i = pool.length-1; i > 0; i--) { const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  return pool.slice(0, cfg.setSize);
+}
+
+function generateFlashEquations() {
+  const n   = flashCfg.table;
+  const op  = flashCfg.operator;
+  const eqs = [];
+
+  for (let i = 1; i <= 12; i++) {
+    let eq;
+    if      (op === '+') eq = { a:n, op:'+', b:i,   answer:n+i   };
+    else if (op === '−') eq = { a:n+i, op:'−', b:n, answer:i     };
+    else if (op === '×') eq = { a:n, op:'×', b:i,   answer:n*i   };
+    else if (op === '÷') eq = { a:n*i, op:'÷', b:n, answer:i     };
+    eqs.push(eq);
+  }
+
+  if (flashCfg.order === 'shuffle') {
+    for (let i = eqs.length-1; i > 0; i--) { const j=Math.floor(Math.random()*(i+1)); [eqs[i],eqs[j]]=[eqs[j],eqs[i]]; }
+  }
+  return eqs;
+}
+
+function startSession() {
+  if (drill.mode === 'drill') startDrill(); else startFlash();
+}
+
+function startFlash() {
+  const eqs = generateFlashEquations();
+  drill.equations = eqs;
+  drill.current   = 0;
+  drill.results   = [];
+  drill.phase     = 'exposure';
+
+  document.getElementById('resultsCard').classList.add('hidden');
+  document.getElementById('recallWrap').classList.add('hidden');
+  setRunning(true);
+
+  buildDots(eqs.length);
+  setDot(0, 'active');
+
+  const opLabel = { '+':'Addition', '−':'Subtraction', '×':'Multiplication', '÷':'Division' }[flashCfg.operator];
+  setPhaseLabel(`<span>${opLabel} — ${flashCfg.table}s</span> · Phase 1 — Exposure`);
+
+  showExposure(0);
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────────────────────
+
+function buildDots(n) {
+  const c = document.getElementById('setDots');
+  c.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div');
+    d.className = 'set-dot';
+    d.id = 'dot-' + i;
+    c.appendChild(d);
+  }
+}
+
+function setDot(i, state) {
+  const d = document.getElementById('dot-' + i);
+  if (d) { d.className = 'set-dot ' + state; }
+}
+
+function showEquation(eq, showAnswer) {
+  document.getElementById('idleText').classList.add('hidden');
+  const disp = document.getElementById('eqDisplay');
+  disp.classList.remove('hidden');
+  disp.style.animation = 'none';
+  void disp.offsetWidth;
+  disp.style.animation = '';
+
+  document.getElementById('eqA').textContent   = eq.a;
+  document.getElementById('eqOp').textContent  = eq.op;
+  document.getElementById('eqB').textContent   = eq.b;
+
+  const ansEl = document.getElementById('eqAns');
+  if (showAnswer) {
+    ansEl.textContent = eq.answer;
+    ansEl.className = 'eq-ans';
+  } else {
+    ansEl.textContent = '?';
+    ansEl.className = 'eq-blank';
+  }
+}
+
+function setPhaseLabel(text) {
+  document.getElementById('phaseLabel').innerHTML = text;
+}
+
+// ── DWELL BAR ─────────────────────────────────────────────────────────────────
+
+function animateDwell(seconds, onComplete) {
+  const bar = document.getElementById('dwellBar');
+  bar.style.transition = 'none';
+  bar.style.width = '100%';
+  void bar.offsetWidth;
+  bar.style.transition = `width ${seconds}s linear`;
+  bar.style.width = '0%';
+  drill.dwellTimer = setTimeout(onComplete, seconds * 1000);
+}
+
+function clearDwell() {
+  clearTimeout(drill.dwellTimer);
+  const bar = document.getElementById('dwellBar');
+  bar.style.transition = 'none';
+  bar.style.width = '0%';
+}
+
+// ── EXPOSURE PHASE ────────────────────────────────────────────────────────────
+
+function startDrill() {
+  const eqs = generateDrillEquations();
+  if (!eqs.length) { alert('Select at least one table.'); return; }
+
+  drill.equations = eqs;
+  drill.current   = 0;
+  drill.results   = [];
+  drill.phase     = 'exposure';
+
+  document.getElementById('resultsCard').classList.add('hidden');
+  document.getElementById('recallWrap').classList.add('hidden');
+  setRunning(true);
+
+  buildDots(eqs.length);
+  setDot(0, 'active');
+  setPhaseLabel('<span>Phase 1</span> — Exposure');
+
+  showExposure(0);
+}
+
+function showExposure(idx) {
+  drill.current = idx;
+  if (idx > 0) setDot(idx - 1, 'done');
+  setDot(idx, 'active');
+
+  showEquation(drill.equations[idx], true);
+  const dwell = drill.mode === 'flash' ? flashCfg.dwell : cfg.dwell;
+  animateDwell(dwell, () => {
+    const next = idx + 1;
+    if (next < drill.equations.length) {
+      showExposure(next);
+    } else {
+      setDot(idx, 'done');
+      startRecall();
+    }
+  });
+}
+
+// ── RECALL PHASE ──────────────────────────────────────────────────────────────
+
+function startRecall() {
+  drill.current = 0;
+  drill.phase   = 'recall';
+
+  // Reset dots
+  drill.equations.forEach((_, i) => setDot(i, 'active'));
+  setDot(0, 'active');
+
+  setPhaseLabel('<span>Phase 2</span> — Recall');
+
+  document.getElementById('recallWrap').classList.remove('hidden');
+  document.getElementById('feedback').textContent = '\u00a0';
+  document.getElementById('feedback').className = 'feedback';
+
+  // Small gap before first recall question
+  setTimeout(() => showRecall(0), 400);
+}
+
+function showRecall(idx) {
+  drill.current    = idx;
+  drill.recallStart = Date.now();
+
+  showEquation(drill.equations[idx], false);
+
+  const input = document.getElementById('recallInput');
+  input.value = '';
+  input.focus();
+
+  document.getElementById('feedback').textContent = '\u00a0';
+  document.getElementById('feedback').className = 'feedback';
+}
+
+function handleRecallInput(e) {
+  if (drill.phase !== 'recall') return;
+
+  const input  = e.target;
+  const val    = input.value.trim();
+  const eq     = drill.equations[drill.current];
+
+  if (!val || !/^\d+$/.test(val)) return;
+
+  // Auto-submit when digit count matches expected answer length
+  // OR on Enter key
+  const expectedLen = String(eq.answer).length;
+  const shouldSubmit = val.length >= expectedLen || e.type === 'keydown' && e.key === 'Enter';
+
+  if (!shouldSubmit) return;
+
+  const responseTime = Date.now() - drill.recallStart;
+  const userAnswer   = parseInt(val);
+  const correct      = userAnswer === eq.answer;
+
+  drill.results.push({ eq, userAnswer, correct, responseTime });
+
+  // Dot feedback
+  setDot(drill.current, correct ? 'correct' : 'wrong');
+
+  // Flash feedback text
+  const fb = document.getElementById('feedback');
+  if (correct) {
+    fb.textContent = 'correct';
+    fb.className = 'feedback correct';
+  } else {
+    fb.textContent = `✗  answer: ${eq.answer}`;
+    fb.className = 'feedback wrong';
+  }
+
+  // Clear input immediately, keep focus
+  input.value = '';
+
+  const next = drill.current + 1;
+  if (next < drill.equations.length) {
+    setTimeout(() => showRecall(next), correct ? 300 : 600);
+  } else {
+    setTimeout(showResults, correct ? 500 : 800);
+  }
+}
+
+// ── RESULTS ───────────────────────────────────────────────────────────────────
+
+function showResults() {
+  drill.phase = 'results';
+  setRunning(false);
+  document.getElementById('recallWrap').classList.add('hidden');
+  document.getElementById('eqDisplay').classList.add('hidden');
+  document.getElementById('idleText').classList.remove('hidden');
+  document.getElementById('idleText').textContent = 'set complete';
+  clearDwell();
+  setPhaseLabel('');
+
+  const total   = drill.results.length;
+  const correct = drill.results.filter(r => r.correct).length;
+  const acc     = Math.round(correct / total * 100);
+  const avgMs   = Math.round(drill.results.reduce((s,r) => s + r.responseTime, 0) / total);
+  const avgSec  = (avgMs / 1000).toFixed(1);
+
+  document.getElementById('r-correct').textContent = correct + '/' + total;
+  document.getElementById('r-correct').className   = 'results-val ' + (correct === total ? 'green' : correct >= total * 0.7 ? '' : 'red');
+  document.getElementById('r-accuracy').textContent = acc + '%';
+  document.getElementById('r-accuracy').className   = 'results-val ' + (acc >= 90 ? 'green' : acc >= 70 ? '' : 'red');
+  document.getElementById('r-avgtime').textContent  = avgSec + 's';
+
+  const missed = drill.results.filter(r => !r.correct);
+  const ms = document.getElementById('missedSection');
+  const ml = document.getElementById('missedList');
+  ml.innerHTML = '';
+  if (missed.length) {
+    ms.classList.remove('hidden');
+    missed.forEach(r => {
+      const el = document.createElement('div');
+      el.className = 'missed-item';
+      el.innerHTML = `<span class="mi-eq">${r.eq.a} ${r.eq.op} ${r.eq.b} = ?</span><span><span class="mi-ans">you: ${r.userAnswer}</span><span class="mi-correct"> ✓ ${r.eq.answer}</span></span>`;
+      ml.appendChild(el);
+    });
+  } else {
+    ms.classList.add('hidden');
+  }
+
+  document.getElementById('resultsTitle').textContent = sessionTitle(correct, total, avgMs);
+
+  document.getElementById('resultsCard').classList.remove('hidden');
+  document.getElementById('resultsCard').scrollIntoView({ behavior:'smooth' });
+}
+
+function resetSession() {
+  setRunning(false);
+  document.getElementById('resultsCard').classList.add('hidden');
+  document.getElementById('recallWrap').classList.add('hidden');
+  document.getElementById('idleText').textContent = 'configure below and press start';
+  document.getElementById('idleText').classList.remove('hidden');
+  document.getElementById('eqDisplay').classList.add('hidden');
+  document.getElementById('setDots').innerHTML = '';
+  setPhaseLabel('');
+  clearDwell();
+  drill.phase = 'idle';
+}
+
+function resetDrill() {
+  resetSession();
+  document.getElementById('startBtn').classList.remove('hidden');
+}
+
+function showConfig() {
+  resetSession();
+  document.getElementById('startBtn').classList.remove('hidden');
+  if (drill.mode === 'drill') {
+    document.getElementById('settingsBody').classList.remove('hidden');
+    document.getElementById('settingsChevron').textContent = '▲';
+    drill.settingsOpen = true;
+  } else {
+    document.getElementById('flashSettingsBody').classList.remove('hidden');
+    document.getElementById('flashSettingsChevron').textContent = '▲';
+    drill.flashSettingsOpen = true;
+  }
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────────
+
+function buildTableGrid() {
+  const grid = document.getElementById('tableGrid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= 12; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'table-btn' + (cfg.tables[i] ? ' active' : '');
+    btn.textContent = i;
+    btn.dataset.table = i;
+    btn.addEventListener('click', () => {
+      cfg.tables[i] = !cfg.tables[i];
+      btn.classList.toggle('active', cfg.tables[i]);
+    });
+    grid.appendChild(btn);
+  }
+}
+
+function selectTables(mode) {
+  for (let i = 1; i <= 12; i++) {
+    cfg.tables[i] = mode === 'all' ? true : mode === 'hard' ? (i >= 6 && i <= 9) : false;
+  }
+  buildTableGrid();
+}
+
+document.getElementById('opToggle').addEventListener('click', e => {
+  const btn = e.target.closest('.toggle-btn');
+  if (!btn) return;
+  cfg.operator = btn.dataset.op;
+  document.querySelectorAll('#opToggle .toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+});
+
+document.getElementById('setSizeSlider').addEventListener('input', function() {
+  cfg.setSize = parseInt(this.value);
+  document.getElementById('setSizeDisplay').textContent = cfg.setSize;
+});
+
+document.getElementById('dwellSlider').addEventListener('input', function() {
+  cfg.dwell = parseFloat(this.value);
+  document.getElementById('dwellDisplay').textContent = cfg.dwell.toFixed(1);
+});
+
+function toggleSettings() {
+  drill.settingsOpen = !drill.settingsOpen;
+  document.getElementById('settingsBody').classList.toggle('hidden', !drill.settingsOpen);
+  document.getElementById('settingsChevron').textContent = drill.settingsOpen ? '▲' : '▼';
+}
+
+function toggleFlashSettings() {
+  drill.flashSettingsOpen = !drill.flashSettingsOpen;
+  document.getElementById('flashSettingsBody').classList.toggle('hidden', !drill.flashSettingsOpen);
+  document.getElementById('flashSettingsChevron').textContent = drill.flashSettingsOpen ? '▲' : '▼';
+}
+
+// Flashcard operator toggle
+document.getElementById('flashOpToggle').addEventListener('click', e => {
+  const btn = e.target.closest('.toggle-btn');
+  if (!btn) return;
+  flashCfg.operator = btn.dataset.op;
+  document.querySelectorAll('#flashOpToggle .toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+});
+
+// Flashcard order toggle
+document.getElementById('flashOrderToggle').addEventListener('click', e => {
+  const btn = e.target.closest('.toggle-btn');
+  if (!btn) return;
+  flashCfg.order = btn.dataset.order;
+  document.querySelectorAll('#flashOrderToggle .toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+});
+
+// Flashcard dwell
+document.getElementById('flashDwellSlider').addEventListener('input', function() {
+  flashCfg.dwell = parseFloat(this.value);
+  document.getElementById('flashDwellDisplay').textContent = flashCfg.dwell.toFixed(1);
+});
+
+function buildFlashTableGrid() {
+  const grid = document.getElementById('flashTableGrid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= 12; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'table-btn' + (flashCfg.table === i ? ' active' : '');
+    btn.textContent = i;
+    btn.dataset.table = i;
+    btn.addEventListener('click', () => {
+      flashCfg.table = i;
+      document.querySelectorAll('#flashTableGrid .table-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+    grid.appendChild(btn);
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+
+buildTableGrid();
+buildFlashTableGrid();
+
+const recallInput = document.getElementById('recallInput');
+
+recallInput.addEventListener('input', handleRecallInput);
+
+recallInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleRecallInput(e);
+  // Allow only digits, backspace, delete
+  if (!/^\d$/.test(e.key) && !['Backspace','Delete','Tab','Enter'].includes(e.key)) {
+    e.preventDefault();
+  }
+});
+
+// Refocus if user clicks away during recall
+document.addEventListener('click', () => {
+  if (drill.phase === 'recall') recallInput.focus();
+});
+
+</script>
+</body>
+</html>
